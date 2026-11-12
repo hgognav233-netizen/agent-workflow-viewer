@@ -1,0 +1,3 @@
+- insert:
+    - id: agent-workflow-viewer
+      name: 'agent-workflow-viewer'

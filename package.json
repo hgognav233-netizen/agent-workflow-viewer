@@ -1,0 +1,26 @@
+{
+  "name": "agent-workflow-viewer",
+  "version": "0.1.0",
+  "description": "Live map of the model at work: what it calls, what comes back, and which subagent it dispatches.",
+  "type": "module",
+  "license": "MIT",
+  "author": "hgognav233-netizen",
+  "keywords": ["dsh-plugin", "visualization", "workflow", "subagent", "observability"],
+  "repository": { "type": "git", "url": "git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git" },
+  "homepage": "https://github.com/hgognav233-netizen/agent-workflow-viewer",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+    }
+  }
+}

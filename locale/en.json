@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Agent workflow viewer",
+    "description": "A live map of the running session: which tool is called, what comes back, and which subagent is dispatched — with what it is doing right now."
+  }
+}
