@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "title": { "en": "hgognav233-netizen plugins", "zh": "hgognav233 的插件" },
+  "description": {
+    "en": "Experimental DSH plugins, source on GitHub.",
+    "zh": "在 GitHub 上开源的 DSH 实验性插件。"
+  },
+  "metadata": {
+    "categories": {
+      "observability": { "title": { "en": "Observability", "zh": "可观测性" } }
+    }
+  },
+  "plugins": [
+    {
+      "name": "agent-workflow-viewer",
+      "title": { "en": "Agent workflow viewer", "zh": "工作流视图" },
+      "description": {
+        "en": "A live, zoomable map of what the model calls, what comes back, which subagent it dispatches, and how each capability is used.",
+        "zh": "实时、可缩放的能力图谱：这个模型在调什么、从哪儿拿东西、派发了哪个子 agent。"
+      },
+      "icon": "icon.svg",
+      "author": "hgognav233-netizen",
+      "homepage": "https://github.com/hgognav233-netizen/agent-workflow-viewer",
+      "repository": { "url": "https://github.com/hgognav233-netizen/agent-workflow-viewer" },
+      "metadata": {
+        "category": "observability",
+        "keywords": ["visualization", "observability", "workflow", "subagent"]
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1794506551,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/hgognav233-netizen/agent-workflow-viewer",
+            "commit": "677a39b6f1f0742c2fbc20b5ef45e63a0e196ffd"
+          }
+        }
+      ]
+    }
+  ]
+}
