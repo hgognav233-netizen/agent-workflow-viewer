@@ -44,6 +44,7 @@ window.__ModuleLoader__.load({
       '.awv-wire,.awv-flow,.awv-guide,.awv-ring{fill:none;vector-effect:non-scaling-stroke;pointer-events:none}.awv-guide{stroke:#a4a49b;stroke-width:.5;stroke-dasharray:1 4;opacity:.5}.awv-wire{stroke:#181818;stroke-width:.65;opacity:.18;transition:opacity .18s}.awv-wire.is-branch{stroke-width:.85;opacity:.38}.awv-wire.is-focus{stroke-width:1;opacity:.85}.awv-wire.is-dim{opacity:.09}.awv-flow{stroke:#131313;stroke-width:1.3;stroke-dasharray:3 19;stroke-linecap:round;opacity:.9}.awv-ring{stroke:#171717;opacity:0}.awv-ring.is-on{opacity:1}.awv-ink{stroke:#171717;vector-effect:non-scaling-stroke}.awv-label{fill:#383838;pointer-events:none;font-family:"IBM Plex Mono",ui-monospace,monospace;paint-order:stroke;stroke:#fdfdfb;stroke-width:2.4;stroke-linejoin:round}.awv-dot:hover .awv-ring{opacity:1}.awv-dot.is-active .awv-ring{opacity:.62}.awv-zone-label{fill:#53534e;font:9px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.08em}',
       '.awv-popover{z-index:3;position:absolute;width:min(235px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;overscroll-behavior:contain;padding:12px;border:1px solid #777773;background:#fff;color:#171717;box-shadow:0 8px 24px #15151520;border-radius:5px;transform-origin:var(--aw-origin) center}.awv-popover h3{font-size:14px;margin:0;overflow-wrap:anywhere}.awv-popover p{margin:5px 0;overflow-wrap:anywhere;color:#494949}.awv-popover .awv-inspect-head{align-items:flex-start;margin:0}.awv-popover .awv-close{border-color:#ddd;background:white;color:#171717;padding:2px 5px}.awv-popover .awv-detail{font:11px/1.5 "IBM Plex Mono",ui-monospace,monospace}.awv-popover .awv-actions{margin:10px 0 0}.awv-tether{position:absolute;width:var(--aw-length);height:1px;background:#343434;transform:rotate(var(--aw-angle));transform-origin:left center;z-index:2;pointer-events:none}',
       '.awv-phase{font:11px ui-monospace,monospace;color:#555;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.awv-phase i{width:7px;height:7px;border-radius:50%;background:#9a9a92;display:inline-block}.awv-phase.is-busy{color:#14603a}.awv-phase.is-busy i{background:#1a7f4b}.awv-beat{animation:awv-pulse 1.45s ease-out infinite;transform-box:fill-box;transform-origin:center}.awv-beat-idle{animation:awv-breathe 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes awv-breathe{0%,100%{opacity:.25}50%{opacity:.75}}',
+      '.awv.is-full{inset:8px;width:auto;max-width:none}',
       '.awv-inspector{overflow:auto;padding:15px;min-width:0;background:var(--aw-bg)}.awv-inspector h3{font-size:13px;margin:0 0 8px}.awv-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-bottom:18px}.awv-metric{border:1px solid var(--aw-line);background:var(--aw-soft);padding:7px 9px;border-radius:9px;min-width:0;text-align:left}.awv-metric b{display:block;font-size:18px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.3}.awv-metric span,.awv-secondary{color:var(--aw-muted);font-size:11px}.awv-bad{color:var(--aw-red)}.awv-inspect-head{display:flex;align-items:center;justify-content:space-between;gap:6px}.awv-list{display:grid;gap:5px;margin:0 0 15px}.awv-list button{background:var(--aw-bg);border:1px solid var(--aw-line);border-radius:8px;text-align:left;padding:7px 9px;display:flex;align-items:center;gap:7px;min-width:0}.awv-list button:hover,.awv-list button[aria-pressed=true]{border-color:var(--aw-brand);background:var(--aw-soft)}.awv-list i{width:7px;height:7px;flex:none;border-radius:50%;background:var(--dot)}.awv-list b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}.awv-list span{white-space:nowrap;color:var(--aw-muted);font-size:11px}.awv-detail{overflow-wrap:anywhere;margin:0 0 12px}.awv-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}',
       '.awv-timeline{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--aw-soft)}.awv-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--aw-line);background:var(--aw-bg)}.awv-controls [aria-pressed=true]{color:var(--aw-brand);border-color:var(--aw-brand)}.awv-page{margin-left:auto;display:flex;gap:5px}.awv-feed{overflow:auto;min-height:0;padding:12px 16px}.awv-row{padding:9px 12px;margin:0 0 6px;border:1px solid var(--aw-line);border-left:3px solid var(--aw-line);border-radius:9px;background:var(--aw-bg);overflow-wrap:anywhere}.awv-row.awv-failed{border-left-color:var(--aw-red)}.awv-row.awv-running{border-left-color:var(--aw-brand)}.awv-row.awv-focus{outline:2px solid var(--aw-brand);outline-offset:-1px}.awv-rowhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.awv-rowhead time{margin-left:auto;font-size:11px;color:var(--aw-muted);font-variant-numeric:tabular-nums}.awv-row p{margin:4px 0;white-space:pre-wrap}.awv-row summary{cursor:pointer;color:var(--aw-muted)}.awv-turn{padding:5px 3px;color:var(--aw-muted);font-size:11px}.awv-note{padding:12px 16px;color:var(--aw-muted);margin:0}.awv-error{padding:7px 16px;border-bottom:1px solid var(--aw-line);color:var(--aw-red);margin:0}.awv-launch{border:1px solid currentColor;border-radius:8px;padding:3px 8px;background:transparent;font:inherit;font-size:12px;cursor:pointer;color:inherit;white-space:nowrap}.awv-launch[aria-pressed=true]{color:var(--dsw-alias-brand-primary,#3264db)}',
       '@media(max-width:680px){.awv{inset:8px 8px 46px;width:auto}.awv-header{padding:10px 12px}.awv-nav{padding:0 12px}.awv-main{display:flex;flex-direction:column;overflow:auto}.awv-map{flex:none;height:clamp(250px,48dvh,420px)}.awv-inspector{overflow:visible}.awv-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.awv-metric b{font-size:15px}.awv-select{max-width:145px}}',
@@ -293,7 +294,7 @@ window.__ModuleLoader__.load({
             return
           } catch { /* fall through to the visible address */ }
         }
-        setNote(t('这个窗口不允许弹出新窗口，把下面的地址贴到浏览器标签页里：', 'This window blocks pop-ups. Open this address in a browser tab: ') + url)
+        setNote(t('这个窗口不允许弹出新窗口。把下面的完整地址复制到浏览器标签页打开：', 'This window blocks pop-ups. Copy this address into a browser tab: ') + location.origin + url)
       }
 
       function point(clientX, clientY) {
@@ -574,10 +575,12 @@ window.__ModuleLoader__.load({
         setCursor(null)
         select(null)
       }
+      const [full, setFull] = useState(() => { try { return localStorage.getItem('awv.full') === '1' } catch { return false } })
+      useEffect(() => { try { localStorage.setItem('awv.full', full ? '1' : '0') } catch { /* storage unavailable */ } }, [full])
       const status = error === '404' ? t('找不到这个会话。', 'This session could not be found.')
         : error === '401' || error === '403' ? t('会话访问已失效，请刷新 Harness 后重试。', 'Session access expired. Reload Harness to try again.')
           : t('暂时无法读取活动。', 'Activity is temporarily unavailable.')
-      return h('section', { className: 'awv', role: 'dialog', 'aria-label': t('工作流', 'Workflow') },
+      return h('section', { className: 'awv' + (full ? ' is-full' : ''), role: 'dialog', 'aria-label': t('工作流', 'Workflow') },
         h('style', null, CSS),
         h('div', { className: 'awv-header' },
           h('span', { className: 'awv-mark', 'aria-hidden': true }, '◇'),
@@ -594,6 +597,11 @@ window.__ModuleLoader__.load({
               return t(count + ' 个子会话在跑', count + (count > 1 ? ' subagents' : ' subagent') + ' running')
             })())
             : null,
+          h('button', {
+            className: 'awv-close', type: 'button', onClick: () => setFull(!full),
+            'aria-label': t(full ? '还原面板大小' : '占满窗口', full ? 'Restore panel size' : 'Fill the window'),
+            title: t(full ? '还原面板大小' : '占满窗口，方便和别的软件左右分屏', full ? 'Restore panel size' : 'Fill the window to split the screen with another app'),
+          }, full ? '⤡' : '⤢'),
           h('button', { className: 'awv-close', ref: closeRef, type: 'button', onClick: close, 'aria-label': t('关闭工作流', 'Close workflow') }, '×'),
         ),
         h('nav', { className: 'awv-nav', 'aria-label': t('工作流视图', 'Workflow views') },
