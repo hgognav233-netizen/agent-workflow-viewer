@@ -19,6 +19,49 @@ const SHELL_TOOLS = new Set(['pwsh', 'bash', 'shell', 'exec_command'])
 const AGENT_TOOLS = new Set(['subagent', 'spawn_teammate', 'workflow', 'send_message', 'interrupt_agent', 'list_agents', 'wait_agent', 'team_task_create', 'team_task_update'])
 const zones = { web: 'web', file: 'disk', skill: 'disk', mcp: 'external' }
 
+// Session logs carry token buckets but no spend. Prices come from the public
+// DeepSeek API price list; anything else is reported as unpriced rather than guessed.
+// Order: [cache hit, cache miss, output] in USD per 1M tokens.
+const PRICING = {
+  'deepseek-flash': { peak: [0.006, 0.30, 1.20], off: [0.003, 0.15, 0.60] },
+  'deepseek-v4-pro': { peak: [0.044, 1.32, 3.96], off: [0.022, 0.66, 1.98] },
+}
+const PRICING_AS_OF = '2026-11-13'
+
+function priceOf(model) {
+  const name = String(model || '').toLowerCase()
+  if (!name) return null
+  for (const key of Object.keys(PRICING)) {
+    if (name === key || name.includes(key)) return PRICING[key]
+  }
+  return null
+}
+
+// Peak = Monday to Friday, 01:00-04:00 and 06:00-10:00 UTC. Everything else is off-peak.
+function peakAt(time) {
+  const at = new Date(time)
+  const day = at.getUTCDay()
+  if (day === 0 || day === 6) return false
+  const hour = at.getUTCHours()
+  return (hour >= 1 && hour < 4) || (hour >= 6 && hour < 10)
+}
+
+function requestCost(usage, model, time) {
+  const rates = priceOf(model)
+  if (!rates) return { usd: null, priced: false, peak: false, rates: null }
+  const peak = peakAt(time)
+  const rate = peak ? rates.peak : rates.off
+  const cache = Number(usage?.cacheReadTokens) || 0
+  const miss = Number(usage?.inputTokens) || 0
+  const output = Number(usage?.outputTokens) || 0
+  return {
+    usd: (cache / 1e6) * rate[0] + (miss / 1e6) * rate[1] + (output / 1e6) * rate[2],
+    priced: true,
+    peak,
+    rates: rate,
+  }
+}
+
 function clip(value, limit) {
   const text = String(value ?? '').trim()
   return text.length > limit ? text.slice(0, limit - 1) + '…' : text
@@ -96,8 +139,9 @@ function createFeed() {
   return {
     next: 0, start: 0, inherited: 0, items: [], calls: new Map(), pending: new Set(),
     source: null, loading: null, revision: 0, map: null,
-    modelEvents: [],
+    modelEvents: [], modelName: '',
     phase: { name: 'idle', since: 0, label: '' },
+    requests: [], lastPrompt: 0, stepCaps: [], costByCap: new Map(), catalog: new Map(),
   }
 }
 
@@ -117,17 +161,52 @@ function fold(feed, event) {
     case 'assistant/message': {
       const user = type === 'user/message'
       if (!user) {
-        feed.modelEvents.push({ seq, input: data.usage?.inputTokens ?? 0, output: data.usage?.outputTokens ?? 0 })
+        const usage = data.usage || {}
+        feed.modelEvents.push({ seq, input: usage?.inputTokens ?? 0, output: usage?.outputTokens ?? 0 })
+        const cost = requestCost(usage, feed.modelName, time)
+        const prompt = (Number(usage.inputTokens) || 0) + (Number(usage.cacheReadTokens) || 0) + (Number(usage.cacheWriteTokens) || 0)
+        const delta = Math.max(0, prompt - feed.lastPrompt)
+        feed.lastPrompt = prompt
+        const caps = [...new Set(feed.stepCaps)]
+        feed.stepCaps.length = 0
+        // Split the prompt growth since the last request across the capabilities it came from.
+        if (cost.priced && delta > 0 && caps.length) {
+          const share = (delta / 1e6) * cost.rates[1] / caps.length
+          for (const cap of caps) feed.costByCap.set(cap, (feed.costByCap.get(cap) || 0) + share)
+        }
+        feed.requests.push({
+          seq, time, model: feed.modelName || '', prompt, step: data.step,
+          output: Number(usage.outputTokens) || 0,
+          cache: Number(usage.cacheReadTokens) || 0,
+          usd: cost.usd, priced: cost.priced, peak: cost.peak,
+        })
+        // Reasoning lives in a content block, not in its own event type.
+        const blocks = Array.isArray(data.message?.content) ? data.message.content : []
+        const thinking = clip(blocks.filter((block) => block?.type === 'reasoning')
+          .map((block) => block.text).join('\n\n'), 1600)
+        if (thinking) add({ kind: 'thinking', text: thinking, step: data.step })
       }
       const text = clip(textOf(user ? data.content : data.message?.content), 1200)
-      if (text) add({ kind: user ? 'user' : 'reply', text })
+      if (text) add({ kind: user ? 'user' : 'reply', text, step: data.step })
       feed.phase = { name: 'thinking', since: time, label: '' }
+      break
+    }
+    case 'subagent/catalog': {
+      // The parent session records the label a subagent was dispatched with.
+      if (data.childId) {
+        feed.catalog.set(String(data.childId), {
+          label: clip(data.label || '', 80),
+          mode: data.mode || '',
+          createdAt: data.childCreatedAt || 0,
+        })
+      }
       break
     }
     case 'request/header':
     case 'request/context': {
       const config = type === 'request/header' ? data.header?.config : data
       if (config?.provider || config?.model) feed.modelEvents.push({ seq, provider: config.provider, name: config.model })
+      if (config?.model) feed.modelName = config.model
       // A model request is open from here until its assistant message settles.
       feed.phase = { name: 'thinking', since: time, label: '' }
       break
@@ -136,8 +215,9 @@ function fold(feed, event) {
       const name = String(data.name || 'tool')
       const args = argumentsOf(data.arguments)
       const object = summarize(name, args)
+      if (object.cap?.id) feed.stepCaps.push(object.cap.id)
       const summary = clip(pick(args, 'file_path', 'path', 'command', 'cmd', 'query', 'url', 'label', 'name', 'skill', 'description'), 240)
-      const item = { kind: 'call', seq, time, name, summary, object, id: data.callId, turn: data.turn }
+      const item = { kind: 'call', seq, time, name, summary, object, id: data.callId, turn: data.turn, step: data.step }
       feed.items.push(item)
       if (item.id) feed.calls.set(item.id, item)
       feed.pending.add(item)
@@ -189,7 +269,7 @@ function append(feed, events, start) {
 }
 
 function modelOf(feed) {
-  const model = { provider: '', name: '', requests: 0, input: 0, output: 0 }
+  const model = { provider: '', name: feed.modelName || '', requests: 0, input: 0, output: 0 }
   for (const event of feed.modelEvents) {
     if (event.input !== undefined) {
       model.requests++
@@ -201,6 +281,26 @@ function modelOf(feed) {
     }
   }
   return model
+}
+
+// Spend is an estimate: logs carry token buckets, not money.
+function spendOf(feed) {
+  const spend = { requests: feed.requests.length, priced: 0, unpriced: 0, usd: 0, peak: 0, asOf: PRICING_AS_OF }
+  for (const request of feed.requests) {
+    if (!request.priced) { spend.unpriced++; continue }
+    spend.priced++
+    spend.usd += request.usd
+    if (request.peak) spend.peak++
+  }
+  return spend
+}
+
+function topSpend(feed, limit = 5) {
+  return feed.requests
+    .filter((request) => request.priced && request.usd > 0)
+    .sort((a, b) => b.usd - a.usd)
+    .slice(0, limit)
+    .map(({ seq, time, usd, prompt, output, cache, peak, model }) => ({ seq, time, usd, prompt, output, cache, peak, model }))
 }
 
 function statusOf(call) {
@@ -255,6 +355,7 @@ function aggregate(feed) {
   const nodes = [...groups.values()].map(({ objects, ...group }) => ({
     ...group,
     count: objects.size,
+    usd: feed.costByCap.get(group.id) || 0,
     dots: [...objects.values()].map((dot) => {
       const callers = [...dot.callers].map(([name, hits]) => ({ name, hits })).sort((a, b) => b.hits - a.hits)
       return { ...dot, callers, caller: callers[0]?.name ?? '' }
@@ -267,6 +368,9 @@ function aggregate(feed) {
   feed.map = {
     calls, failures, interrupted, active: active.reverse().slice(0, 12), running: active.length,
     phase: feed.phase,
+    spend: spendOf(feed),
+    topSteps: topSpend(feed),
+    catalog: [...feed.catalog].map(([id, entry]) => ({ id, ...entry })),
     nodes: nodes.map((node) => ({ ...node, dots: node.dots.filter((dot) => ids.has(dot.id)) })),
   }
   return feed.map
@@ -281,6 +385,7 @@ function timeline(feed, query) {
   const filtered = items.filter((item) => {
     if (filter === 'failed') return item.result?.status === 'failed'
     if (filter === 'tools') return item.kind === 'call' || item.kind === 'result'
+    if (filter === 'thinking') return item.kind === 'thinking'
     return true
   })
   let index = Math.max(0, filtered.length - TIMELINE_LIMIT)
@@ -361,7 +466,8 @@ aside h2:first-child{margin-top:0}
 .zoom{display:inline-flex;gap:4px}
 .plot{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--paper);touch-action:none;cursor:grab;padding:4px 6px}
 .plot.dragging{cursor:grabbing}
-.plot svg{display:block;width:100%;height:auto;transform-origin:0 0;max-height:62vh}
+.plot svg{display:block;width:100%;height:auto;transform-origin:0 0}
+.dotlabel{fill:var(--ink);font:8px ui-monospace,monospace;paint-order:stroke;stroke:var(--paper);stroke-width:2.4;stroke-linejoin:round;pointer-events:none}
 .hint{color:var(--mute);font-size:11px;margin-top:4px}
 .live-wire{stroke:var(--live);stroke-dasharray:3 19;animation:flow 1.15s linear infinite}
 .live-ring{transform-box:fill-box;transform-origin:center;animation:ping 1.45s ease-out infinite}
@@ -427,6 +533,7 @@ body[data-mode=board] .view-only{display:none}
       <div class="filters" id="filters">
         <button type="button" data-filter="all" aria-pressed="true">全部</button>
         <button type="button" data-filter="tools" aria-pressed="false">工具</button>
+        <button type="button" data-filter="thinking" aria-pressed="false">思考</button>
         <button type="button" data-filter="failed" aria-pressed="false">失败</button>
       </div>
       <div id="items"><div class="empty">…</div></div>
@@ -437,6 +544,8 @@ body[data-mode=board] .view-only{display:none}
     <div class="metrics" id="metrics"></div>
     <h2>正在执行</h2><div class="muted" id="active">无</div>
     <h2>能力</h2><div class="muted" id="caps">…</div>
+    <h2>花费（估算）</h2><div id="spend">…</div>
+    <h2 class="view-only" id="agentshead" hidden>子 Agent</h2><div class="view-only" id="agents" hidden></div>
   </aside>
 </main>
 <script>
@@ -490,7 +599,7 @@ var THEMES = ['system', 'light', 'dark'];
 var ICONS = { system: '◐', light: '☀', dark: '☾' };
 var NAMES = { system: '跟随系统', light: '浅色', dark: '深色' };
 var theme = 'system';
-try { theme = localStorage.getItem('awv-board-theme') || 'system' } catch (error) { theme = 'system' }
+try { theme = localStorage.getItem('awv-theme') || localStorage.getItem('awv-board-theme') || 'system' } catch (error) { theme = 'system' }
 function applyTheme(value) {
   theme = THEMES.indexOf(value) < 0 ? 'system' : value;
   var root = document.documentElement;
@@ -498,7 +607,7 @@ function applyTheme(value) {
   else root.setAttribute('data-theme', theme);
   byId('theme').textContent = ICONS[theme];
   byId('theme').title = '配色：' + NAMES[theme];
-  try { localStorage.setItem('awv-board-theme', theme) } catch (error) { /* file: or private mode */ }
+  try { localStorage.setItem('awv-theme', theme) } catch (error) { /* file: or private mode */ }
 }
 applyTheme(theme);
 byId('theme').addEventListener('click', function () {
@@ -511,7 +620,8 @@ function curvePath(from, to, bend) {
     + ' ' + (to.x - dx * .36) + ' ' + to.y + ' ' + to.x + ' ' + to.y;
 }
 function layoutGraph(nodes) {
-  var TOP = 24, BOTTOM = 462, DOT_X = 424, HEAD = 20, GAP = 7, FLOOR = 5;
+  var TOP = 24, DOT_X = 424, HEAD = 20, GAP = 7, FLOOR = 5, PITCH = 11;
+  var BASE = 484, MAX = 1600;
   var lanes = ZONES.map(function (zone) {
     return {
       zone: zone,
@@ -520,10 +630,14 @@ function layoutGraph(nodes) {
     };
   });
   var totalGroups = lanes.reduce(function (sum, lane) { return sum + lane.groups.length }, 0);
-  var usable = BOTTOM - TOP - lanes.length * HEAD - totalGroups * GAP;
   var all = lanes.reduce(function (sum, lane) {
     return sum + lane.groups.reduce(function (count, node) { return count + (node.dots || []).length }, 0);
   }, 0);
+  var gaps = totalGroups * GAP;
+  // Crowded maps grow taller so objects keep their names; past the cap, dots fold again.
+  var natural = TOP + lanes.length * HEAD + gaps + all * PITCH + 24;
+  var height = Math.min(MAX, Math.max(BASE, natural));
+  var usable = height - TOP - lanes.length * HEAD - gaps;
   var perGroup = usable / Math.max(1, all) < FLOOR
     ? Math.max(1, Math.floor(usable / FLOOR / Math.max(1, totalGroups))) : Infinity;
   var drawn = lanes.reduce(function (sum, lane) {
@@ -531,25 +645,32 @@ function layoutGraph(nodes) {
       return count + Math.min(perGroup, (node.dots || []).length);
     }, 0);
   }, 0);
-  var pitch = Math.max(FLOOR, Math.min(11, usable / Math.max(1, drawn)));
-  var cursor = TOP;
-  return lanes.map(function (lane, index) {
+  var pitch = Math.max(FLOOR, Math.min(PITCH, usable / Math.max(1, drawn)));
+  var content = lanes.length * HEAD + gaps + drawn * pitch;
+  var offset = Math.max(0, (height - TOP - content) / 2);
+  var cursor = TOP + offset;
+  var placed = lanes.map(function (lane, index) {
     var top = cursor;
     cursor += HEAD;
     var inner = cursor;
     var groups = lane.groups.map(function (node, order) {
       var shown = (node.dots || []).slice(0, perGroup);
-      var height = Math.max(1, shown.length) * pitch;
-      var hub = { x: 211 + ((order * 61 + index * 37) % 95), y: inner + height / 2 };
+      var span = Math.max(1, shown.length) * pitch;
+      var hub = { x: 211 + ((order * 61 + index * 37) % 95), y: inner + span / 2 };
       var dots = shown.slice().sort(function (a, b) { return a.id - b.id }).map(function (dot, order) {
         return { dot: dot, x: DOT_X, y: inner + (order + .5) * pitch };
       });
-      inner += height + GAP;
+      inner += span + GAP;
       return { node: node, hub: hub, dots: dots };
     });
     cursor = inner;
-    return { top: top, label: lane.zone.label, count: lane.groups.length, groups: groups };
+    return { top: top, label: lane.zone.label, count: lane.groups.length, groups: groups, pitch: pitch };
   });
+  return { height: height, lanes: placed, center: TOP + offset + content / 2 };
+}
+function short(text, limit) {
+  var chars = Array.from(String(text == null ? '' : text));
+  return chars.length > limit ? chars.slice(0, limit - 1).join('') + '…' : chars.join('');
 }
 function dotTitle(node, dot) {
   var parts = [dot.label || ('对象 #' + dot.id)];
@@ -560,31 +681,37 @@ function dotTitle(node, dot) {
 }
 function drawGraph(data) {
   var nodes = data.nodes || [];
-  var layout = layoutGraph(nodes);
+  var plan = layoutGraph(nodes);
+  var height = plan.height;
+  var model = { x: 36, y: plan.center };
   var out = [];
-  out.push('<svg viewBox="0 0 680 484" role="img" aria-label="能力图">');
+  out.push('<svg viewBox="0 0 680 ' + height + '" role="img" aria-label="能力图">');
   [192, 208, 224, 240, 256, 272].forEach(function (x) {
-    out.push('<line x1="' + x + '" x2="' + x + '" y1="18" y2="466" stroke="var(--guide)" stroke-width=".5" stroke-dasharray="1 4"/>');
+    out.push('<line x1="' + x + '" x2="' + x + '" y1="18" y2="' + (height - 18) + '" stroke="var(--guide)" stroke-width=".5" stroke-dasharray="1 4"/>');
   });
-  layout.forEach(function (zone) {
+  plan.lanes.forEach(function (zone) {
+    var spacious = zone.pitch >= 8.5;
     out.push('<line x1="327" x2="655" y1="' + (zone.top + 16) + '" y2="' + (zone.top + 16) + '" stroke="var(--guide)" stroke-width=".5"/>');
     out.push('<text x="655" y="' + (zone.top + 12) + '" text-anchor="end" font-size="9" fill="var(--soft)">' + esc(zone.label + ' / ' + zone.count) + '</text>');
     zone.groups.forEach(function (group) {
-      var bend = (group.hub.y - MODEL.y) * .16;
-      out.push('<path d="' + curvePath(MODEL, group.hub, bend) + '" class="' + (group.node.running ? 'live-wire' : '') + '" fill="none" stroke="var(--ink)" stroke-width="' + (group.node.running ? 1.3 : .7) + '" opacity="' + (group.node.running ? .9 : .25) + '"/>');
+      var bend = (group.hub.y - model.y) * .16;
+      out.push('<path d="' + curvePath(model, group.hub, bend) + '" class="' + (group.node.running ? 'live-wire' : '') + '" fill="none" stroke="var(--ink)" stroke-width="' + (group.node.running ? 1.3 : .7) + '" opacity="' + (group.node.running ? .9 : .25) + '"/>');
       group.dots.forEach(function (entry) {
         var dot = entry.dot;
         var radius = Math.min(3.4, 1.9 + Math.log2((dot.hits || 1) + 1) * .55);
         out.push('<path d="' + curvePath(group.hub, entry, (entry.y - group.hub.y) * .16) + '" class="' + (dot.running ? 'live-wire' : '') + '" fill="none" stroke="var(--ink)" stroke-width=".5" opacity=".18"/>');
         if (dot.running) out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + (radius + 3) + '" fill="none" stroke="var(--live)" class="live-ring"/>');
         out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + radius + '" fill="' + (dot.failed ? 'var(--paper)' : 'var(--ink)') + '" stroke="' + (dot.failed ? 'var(--bad)' : 'none') + '" stroke-width="1" data-cap="' + esc(group.node.id) + '" data-dot="' + esc(dot.id) + '" style="cursor:pointer"><title>' + dotTitle(group.node, dot) + '</title></circle>');
+        if (dot.label && (spacious || dot.running || dot.failed)) {
+          out.push('<text class="dotlabel" x="' + (entry.x + 8) + '" y="' + (entry.y + 3) + '" font-size="8">' + esc(short(dot.label, 26)) + '</text>');
+        }
       });
       out.push('<circle cx="' + group.hub.x + '" cy="' + group.hub.y + '" r="' + (3 + Math.min(4, Math.log2((group.node.count || 1) + 1))) + '" fill="var(--ink)" data-cap="' + esc(group.node.id) + '" style="cursor:pointer"><title>' + esc((group.node.label || group.node.id) + ' · ' + group.node.count + ' 个对象 · ' + group.node.hits + ' 次') + '</title></circle>');
       out.push('<text x="' + (group.hub.x + 9) + '" y="' + (group.hub.y - 6) + '" font-size="9.5" fill="var(--ink)">' + esc(group.node.label || group.node.id) + '</text>');
     });
   });
-  out.push('<circle cx="' + MODEL.x + '" cy="' + MODEL.y + '" r="6" fill="var(--ink)"/>');
-  out.push('<text x="' + MODEL.x + '" y="' + (MODEL.y + 20) + '" font-size="11" fill="var(--ink)">模型</text>');
+  out.push('<circle cx="' + model.x + '" cy="' + model.y + '" r="6" fill="var(--ink)"/>');
+  out.push('<text x="' + model.x + '" y="' + (model.y + 20) + '" font-size="11" fill="var(--ink)">模型</text>');
   out.push('</svg>');
   var plot = byId('plot');
   var card = byId('card');
@@ -771,11 +898,60 @@ function paintMap(data) {
     var row = event.target.closest('[data-cap-row]');
     if (row) showCard(row.getAttribute('data-cap-row'), null);
   };
+  paintSpend(data);
+  paintAgents(data);
   drawGraph(data);
   paintPhase();
 }
+function money(usd) {
+  var value = Number(usd) || 0;
+  if (value >= 1) return '$' + value.toFixed(2);
+  if (value >= 0.01) return '$' + value.toFixed(3);
+  return '$' + value.toFixed(4);
+}
+function paintSpend(data) {
+  var spend = data.spend || {};
+  var html = '<div class="row"><b>' + (spend.priced ? money(spend.usd) : '—') + '</b><span>'
+    + fmt(spend.requests) + ' 次请求' + (spend.unpriced ? ' · ' + spend.unpriced + ' 次未计价' : '') + '</span></div>';
+  var steps = data.topSteps || [];
+  if (steps.length) {
+    html += steps.map(function (step, index) {
+      return '<div class="row click" data-seq="' + esc(step.seq) + '"><b>' + (index + 1) + '. ' + money(step.usd)
+        + (step.peak ? ' · 峰' : ' · 谷') + '</b><span>入 ' + fmt(step.prompt) + ' / 出 ' + fmt(step.output) + ' · #' + esc(step.seq) + '</span></div>';
+    }).join('');
+  } else {
+    html += '<div class="empty">没有可计价的请求</div>';
+  }
+  html += '<div class="hint">按官方 API 价目估算（' + esc(spend.asOf || '') + '，峰谷价），非账单</div>';
+  byId('spend').innerHTML = html;
+  byId('spend').onclick = function (event) {
+    var row = event.target.closest('[data-seq]');
+    if (row) jumpTo(Number(row.getAttribute('data-seq')));
+  };
+}
+function paintAgents(data) {
+  if (MODE !== 'view') return;
+  var sessions = data.sessions || [];
+  var head = byId('agentshead');
+  var box = byId('agents');
+  if (sessions.length < 2) { head.hidden = true; box.hidden = true; return }
+  head.hidden = false;
+  box.hidden = false;
+  box.innerHTML = sessions.map(function (session) {
+    var indent = session.depth === 0 ? '' : repeatDot(Math.min(session.depth, 6)) + ' ';
+    var label = session.depth === 0 ? '当前会话' : (session.label || String(session.id).slice(0, 8));
+    return '<div class="row"><b>' + (session.running ? '● ' : '') + esc(indent + label) + '</b><span>'
+      + fmt(session.calls || 0) + ' 调用 · ' + (session.priced ? money(session.usd) : '—') + '</span></div>';
+  }).join('');
+}
 function timelineRow(item) {
   var at = ' data-seq-row="' + esc(item.seq) + '"';
+  if (item.kind === 'thinking') {
+    return '<div class="item"' + at + '><span class="meta">思考</span><div class="body">'
+      + '<details open><summary>推理过程' + (item.step != null ? ' · 第 ' + esc(item.step) + ' 步' : '') + '</summary>'
+      + '<div class="text">' + esc(item.text || '') + '</div></details></div>'
+      + '<span class="tail">#' + esc(item.seq) + '</span></div>';
+  }
   if (item.kind === 'turn') {
     var started = item.phase === 'start';
     return '<div class="item"' + at + '><span class="meta">' + (started ? '开始' : '结束') + '</span><div class="body">'
@@ -1067,6 +1243,40 @@ export function apply(ctx) {
     return !peer && (!LOOPBACK.test(ctx.webServer.host) || (host && !LOOPBACK.test(host)) || crossSite)
   }
 
+  // Per-session totals for the subagent tree. Only reads feeds that are already
+  // cached, and warms the rest in the background, so a response never waits on
+  // another session's log.
+  function cachedStats(id) {
+    const feed = feeds.get(id)
+    if (!feed || feed.loading || !feed.source) return null
+    const data = aggregate(feed)
+    return { calls: data.calls, usd: data.spend.usd, priced: data.spend.priced, requests: data.spend.requests }
+  }
+
+  function withStats(rows, catalog) {
+    const stats = new Map()
+    const digest = []
+    for (const row of rows.slice(0, 8)) {
+      const cached = cachedStats(row.id)
+      if (cached) {
+        stats.set(row.id, cached)
+        digest.push(row.id.slice(0, 8) + ':' + cached.calls + ':' + Math.round(cached.usd * 1e4))
+      } else {
+        digest.push(row.id.slice(0, 8) + ':?')
+        readFeed(row.id).catch(() => {})
+      }
+    }
+    return {
+      sessions: rows.map((row) => ({
+        ...row,
+        running: live.get(row.id) === true,
+        label: row.label || catalog?.get(row.id)?.label || '',
+        ...(stats.get(row.id) || {}),
+      })),
+      digest: digest.join(','),
+    }
+  }
+
   function view(kind) {
     return async (request, peer) => {
       if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
@@ -1080,10 +1290,11 @@ export function apply(ctx) {
       try {
         const { rows, version: lineageVersion } = await lineageFor(root)
         if (!rows.some((row) => row.id === focus)) return json({ error: 'session_not_found' }, 404)
-        const sessions = rows.map((row) => ({ ...row, running: live.get(row.id) === true }))
-        const working = sessions.filter((row) => row.running).length
         const feed = await readFeed(focus)
-        const version = [epoch, feed.revision, lineageVersion, working, kind, query.get('filter'), query.get('at'), query.get('before'), query.get('after')].join('-')
+        const catalog = (focus === root ? feed : feeds.get(root))?.catalog
+        const { sessions, digest } = withStats(rows, catalog)
+        const working = sessions.filter((row) => row.running).length
+        const version = [epoch, feed.revision, lineageVersion, working, digest, kind, query.get('filter'), query.get('at'), query.get('before'), query.get('after')].join('-')
         if (query.get('version') === version) return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
         const data = kind === 'map' ? aggregate(feed) : timeline(feed, query)
         return json({ ...data, root, focus, sessions, working, version, partial: feed.start > feed.inherited, model: modelOf(feed) })
@@ -1163,12 +1374,12 @@ export function apply(ctx) {
       if (new URL(request.url).searchParams.get('version') === version) {
         return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
       }
-      const { calls, failures, running, phase, active, nodes } = aggregate(feed)
+      const { calls, failures, running, phase, active, nodes, spend, topSteps } = aggregate(feed)
       return json({
-        version, calls, failures, running, phase, model: modelOf(feed),
+        version, calls, failures, running, phase, model: modelOf(feed), spend, topSteps,
         active: active.map(({ name, time }) => ({ name, time })),
-        nodes: nodes.slice(0, 9).map(({ id, label, kind, zone, count, hits, failed, running, dots }) => ({
-          id, label, kind, zone, count, hits, failed, running,
+        nodes: nodes.slice(0, 9).map(({ id, label, kind, zone, count, hits, failed, running, usd, dots }) => ({
+          id, label, kind, zone, count, hits, failed, running, usd,
           dots: dots.slice(0, 24).map((dot) => ({ id: dot.id, hits: dot.hits, failed: dot.failed, running: dot.running })),
         })),
       })

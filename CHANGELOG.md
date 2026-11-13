@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reasoning blocks from the model log become their own timeline entries, with a Thinking filter. The conversation panel and the board both show them.
+- Estimated spend: a total, the most expensive steps, and a per-capability attribution from prompt growth. Prices are the public DeepSeek list with peak and off-peak rates; models without a known price report no number instead of a guess.
+- Subagents show the label they were dispatched with, their call count, and their estimated spend.
+- Crowded capability maps grow taller so object names stay visible, and the board draws object names too.
+- The conversation panel has the same colour-scheme button as the board, remembered per browser.
+
 - The board opened from DSH Web now mirrors the conversation panel: overview, timeline with failure filtering and paging, session selector, object detail cards, and zoom/pan. The DSH Desktop browser board keeps its reduced summary.
 - The board has a colour-scheme button — follow the system, force light, or force dark — remembered per browser.
 - Selecting an object in the board and opening it in the timeline scrolls to that row and highlights it.

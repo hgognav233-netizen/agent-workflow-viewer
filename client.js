@@ -40,15 +40,20 @@ window.__ModuleLoader__.load({
       '.awv{position:fixed;z-index:90;inset:48px 16px 64px auto;width:min(950px,calc(100vw - 32px));display:flex;flex-direction:column;border:1px solid var(--aw-line);border-radius:18px;background:var(--aw-bg);box-shadow:0 20px 70px #141f3c40;overflow:hidden}',
       '.awv-header{padding:16px 20px 13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}.awv-header h2{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}.awv-model{color:var(--aw-muted);font-size:12px;overflow-wrap:anywhere}.awv-title{flex:1;min-width:115px}.awv-mark{width:35px;height:35px;display:grid;place-items:center;background:#1a1a1a;color:#fdfdfb;border-radius:10px;font-size:20px}.awv-close,.awv-button,.awv-select{background:var(--aw-bg);border:1px solid var(--aw-line);border-radius:8px;padding:5px 10px}.awv-close{font-size:18px!important;line-height:1}.awv-button:hover,.awv-close:hover{border-color:var(--aw-brand)}.awv-select{max-width:230px}.awv-inspect-head{margin-bottom:8px}',
       '.awv-nav{display:flex;gap:18px;padding:0 20px;border-bottom:1px solid var(--aw-line);flex:none}.awv-nav button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 1px;color:var(--aw-muted)}.awv-nav [aria-pressed=true]{border-color:var(--aw-brand);color:var(--aw-text);font-weight:650}',
-      '.awv-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,25%);flex:1;min-height:0}.awv-map{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fdfdfb;color:#171717;position:relative;overflow:hidden;border-right:1px solid #e1e1dd}.awv-maphead{padding:13px 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:6px;border-bottom:1px solid #eeeeeb}.awv-maphead strong{font-size:13px}.awv-maphead .awv-button,.awv-popover .awv-button{background:white;border-color:#d9d9d5;color:#171717;padding:3px 8px}.awv-maphead span{font:11px ui-monospace,monospace;color:#555;margin-right:6px}.awv-plot{flex:1;min-height:0;position:relative;isolation:isolate;overflow:hidden}.awv-plot svg{height:100%;width:100%;display:block;touch-action:none;cursor:grab;user-select:none}.awv-plot svg.is-drag{cursor:grabbing}.awv-plot svg [role=button]{cursor:pointer;outline:none}.awv-plot svg [role=button]:focus-visible .awv-ring{opacity:1;stroke-width:1.5}.awv-mapfoot{padding:8px 16px 10px;color:#585858;font-size:11px;border-top:1px solid #eeeeeb}.awv-key{display:inline-block;width:7px;height:7px;box-sizing:border-box;border:1px solid #191919;border-radius:50%;background:white;margin:0 4px 0 12px}',
-      '.awv-wire,.awv-flow,.awv-guide,.awv-ring{fill:none;vector-effect:non-scaling-stroke;pointer-events:none}.awv-guide{stroke:#a4a49b;stroke-width:.5;stroke-dasharray:1 4;opacity:.5}.awv-wire{stroke:#181818;stroke-width:.65;opacity:.18;transition:opacity .18s}.awv-wire.is-branch{stroke-width:.85;opacity:.38}.awv-wire.is-focus{stroke-width:1;opacity:.85}.awv-wire.is-dim{opacity:.09}.awv-flow{stroke:#131313;stroke-width:1.3;stroke-dasharray:3 19;stroke-linecap:round;opacity:.9}.awv-ring{stroke:#171717;opacity:0}.awv-ring.is-on{opacity:1}.awv-ink{stroke:#171717;vector-effect:non-scaling-stroke}.awv-label{fill:#383838;pointer-events:none;font-family:"IBM Plex Mono",ui-monospace,monospace;paint-order:stroke;stroke:#fdfdfb;stroke-width:2.4;stroke-linejoin:round}.awv-dot:hover .awv-ring{opacity:1}.awv-dot.is-active .awv-ring{opacity:.62}.awv-zone-label{fill:#53534e;font:9px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.08em}',
+      '.awv-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,25%);flex:1;min-height:0}.awv-map{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fdfdfb;color:#171717;position:relative;overflow:hidden;border-right:1px solid #e1e1dd}.awv-maphead{padding:13px 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:6px;border-bottom:1px solid #eeeeeb}.awv-maphead strong{font-size:13px}.awv-maphead .awv-button,.awv-popover .awv-button{background:white;border-color:#d9d9d5;color:#171717;padding:3px 8px}.awv-maphead span{font:11px ui-monospace,monospace;color:#555;margin-right:6px}.awv-plot{flex:1;min-height:0;position:relative;isolation:isolate;overflow:auto}.awv-plot svg{height:auto;width:100%;display:block;touch-action:none;cursor:grab;user-select:none}.awv-plot svg.is-drag{cursor:grabbing}.awv-plot svg [role=button]{cursor:pointer;outline:none}.awv-plot svg [role=button]:focus-visible .awv-ring{opacity:1;stroke-width:1.5}.awv-mapfoot{padding:8px 16px 10px;color:#585858;font-size:11px;border-top:1px solid #eeeeeb}.awv-key{display:inline-block;width:7px;height:7px;box-sizing:border-box;border:1px solid #191919;border-radius:50%;background:white;margin:0 4px 0 12px}',
+      '.awv-wire,.awv-flow,.awv-guide,.awv-ring{fill:none;vector-effect:non-scaling-stroke;pointer-events:none}.awv-guide{stroke:#a4a49b;stroke-width:.5;stroke-dasharray:1 4;opacity:.5}.awv-wire{stroke:#181818;stroke-width:.65;opacity:.18;transition:opacity .18s}.awv-wire.is-branch{stroke-width:.85;opacity:.38}.awv-wire.is-focus{stroke-width:1;opacity:.85}.awv-wire.is-dim{opacity:.09}.awv-flow{stroke:#131313;stroke-width:1.3;stroke-dasharray:3 19;stroke-linecap:round;opacity:.9}.awv-ring{stroke:#171717;opacity:0}.awv-ring.is-on{opacity:1}.awv-ink{stroke:#171717;fill:#171717;vector-effect:non-scaling-stroke}.awv-ink.is-open{fill:#fdfdfb}.awv-hub{fill:#161616}.awv-label{fill:#383838;pointer-events:none;font-family:"IBM Plex Mono",ui-monospace,monospace;paint-order:stroke;stroke:#fdfdfb;stroke-width:2.4;stroke-linejoin:round}.awv-dot:hover .awv-ring{opacity:1}.awv-dot.is-active .awv-ring{opacity:.62}.awv-zone-label{fill:#53534e;font:9px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.08em}',
       '.awv-popover{z-index:3;position:absolute;width:min(235px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;overscroll-behavior:contain;padding:12px;border:1px solid #777773;background:#fff;color:#171717;box-shadow:0 8px 24px #15151520;border-radius:5px;transform-origin:var(--aw-origin) center}.awv-popover h3{font-size:14px;margin:0;overflow-wrap:anywhere}.awv-popover p{margin:5px 0;overflow-wrap:anywhere;color:#494949}.awv-popover .awv-inspect-head{align-items:flex-start;margin:0}.awv-popover .awv-close{border-color:#ddd;background:white;color:#171717;padding:2px 5px}.awv-popover .awv-detail{font:11px/1.5 "IBM Plex Mono",ui-monospace,monospace}.awv-popover .awv-actions{margin:10px 0 0}.awv-tether{position:absolute;width:var(--aw-length);height:1px;background:#343434;transform:rotate(var(--aw-angle));transform-origin:left center;z-index:2;pointer-events:none}',
       '.awv-phase{font:11px ui-monospace,monospace;color:#555;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.awv-phase i{width:7px;height:7px;border-radius:50%;background:#9a9a92;display:inline-block}.awv-phase.is-busy{color:#14603a}.awv-phase.is-busy i{background:#1a7f4b}.awv-beat{animation:awv-pulse 1.45s ease-out infinite;transform-box:fill-box;transform-origin:center}.awv-beat-idle{animation:awv-breathe 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes awv-breathe{0%,100%{opacity:.25}50%{opacity:.75}}',
       '.awv.is-full{inset:8px;width:auto;max-width:none}',
       '.awv-inspector{overflow:auto;padding:15px;min-width:0;background:var(--aw-bg)}.awv-inspector h3{font-size:13px;margin:0 0 8px}.awv-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-bottom:18px}.awv-metric{border:1px solid var(--aw-line);background:var(--aw-soft);padding:7px 9px;border-radius:9px;min-width:0;text-align:left}.awv-metric b{display:block;font-size:18px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.3}.awv-metric span,.awv-secondary{color:var(--aw-muted);font-size:11px}.awv-bad{color:var(--aw-red)}.awv-inspect-head{display:flex;align-items:center;justify-content:space-between;gap:6px}.awv-list{display:grid;gap:5px;margin:0 0 15px}.awv-list button{background:var(--aw-bg);border:1px solid var(--aw-line);border-radius:8px;text-align:left;padding:7px 9px;display:flex;align-items:center;gap:7px;min-width:0}.awv-list button:hover,.awv-list button[aria-pressed=true]{border-color:var(--aw-brand);background:var(--aw-soft)}.awv-list i{width:7px;height:7px;flex:none;border-radius:50%;background:var(--dot)}.awv-list b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}.awv-list span{white-space:nowrap;color:var(--aw-muted);font-size:11px}.awv-detail{overflow-wrap:anywhere;margin:0 0 12px}.awv-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}',
+      '.awv-list-note{display:flex;align-items:center;gap:7px;min-width:0;padding:7px 9px;border:1px solid var(--aw-line);border-radius:8px;background:var(--aw-bg)}.awv-list-note i{width:7px;height:7px;flex:none;border-radius:50%;background:var(--dot)}.awv-list-note b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}.awv-list-note span{white-space:nowrap;color:var(--aw-muted);font-size:11px}.awv-thinking{border-left-color:var(--aw-muted)}',
       '.awv-timeline{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--aw-soft)}.awv-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--aw-line);background:var(--aw-bg)}.awv-controls [aria-pressed=true]{color:var(--aw-brand);border-color:var(--aw-brand)}.awv-page{margin-left:auto;display:flex;gap:5px}.awv-feed{overflow:auto;min-height:0;padding:12px 16px}.awv-row{padding:9px 12px;margin:0 0 6px;border:1px solid var(--aw-line);border-left:3px solid var(--aw-line);border-radius:9px;background:var(--aw-bg);overflow-wrap:anywhere}.awv-row.awv-failed{border-left-color:var(--aw-red)}.awv-row.awv-running{border-left-color:var(--aw-brand)}.awv-row.awv-focus{outline:2px solid var(--aw-brand);outline-offset:-1px}.awv-rowhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.awv-rowhead time{margin-left:auto;font-size:11px;color:var(--aw-muted);font-variant-numeric:tabular-nums}.awv-row p{margin:4px 0;white-space:pre-wrap}.awv-row summary{cursor:pointer;color:var(--aw-muted)}.awv-turn{padding:5px 3px;color:var(--aw-muted);font-size:11px}.awv-note{padding:12px 16px;color:var(--aw-muted);margin:0}.awv-error{padding:7px 16px;border-bottom:1px solid var(--aw-line);color:var(--aw-red);margin:0}.awv-launch{border:1px solid currentColor;border-radius:8px;padding:3px 8px;background:transparent;font:inherit;font-size:12px;cursor:pointer;color:inherit;white-space:nowrap}.awv-launch[aria-pressed=true]{color:var(--dsw-alias-brand-primary,#3264db)}',
       '@media(max-width:680px){.awv{inset:8px 8px 46px;width:auto}.awv-header{padding:10px 12px}.awv-nav{padding:0 12px}.awv-main{display:flex;flex-direction:column;overflow:auto}.awv-map{flex:none;height:clamp(250px,48dvh,420px)}.awv-inspector{overflow:visible}.awv-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.awv-metric b{font-size:15px}.awv-select{max-width:145px}}',
       '@media(prefers-reduced-motion:no-preference){.awv-flow{animation:awv-stream 1.15s linear infinite}.awv-dot.is-active .awv-ring{animation:awv-pulse 1.45s ease-out infinite;transform-origin:center;transform-box:fill-box}.awv-dot .awv-ink{animation:awv-appear .28s ease-out both}.awv-popover{animation:awv-pop .24s cubic-bezier(.2,.75,.25,1) both}.awv-tether{animation:awv-appear .2s ease-out both}}@keyframes awv-stream{to{stroke-dashoffset:-44}}@keyframes awv-pulse{from{transform:scale(.8);opacity:.85}to{transform:scale(2);opacity:0}}@keyframes awv-pop{from{opacity:0;transform:translateX(var(--aw-slide)) scale(.94)}to{opacity:1;transform:none}}@keyframes awv-appear{from{opacity:0}to{opacity:1}}',
+      '.awv[data-awv-theme=dark]{--aw-text:#e8e6df;--aw-muted:#9b9b93;--aw-bg:#151517;--aw-soft:#1d1d20;--aw-line:#2b2b2f;--aw-brand:#7aa2ff;--aw-red:#e0798a;color:var(--aw-text);box-shadow:0 20px 70px #000000a0}',
+      '.awv[data-awv-theme=dark] .awv-map{background:#151517;color:#e8e6df;border-right-color:#2b2b2f}.awv[data-awv-theme=dark] .awv-maphead{border-bottom-color:#2b2b2f}.awv[data-awv-theme=dark] .awv-maphead span{color:#9b9b93}.awv[data-awv-theme=dark] .awv-maphead .awv-button,.awv[data-awv-theme=dark] .awv-popover .awv-button{background:#1d1d20;border-color:#3a3a40;color:#e8e6df}.awv[data-awv-theme=dark] .awv-mapfoot{color:#9b9b93;border-top-color:#2b2b2f}.awv[data-awv-theme=dark] .awv-key{background:#151517;border-color:#e8e6df}.awv[data-awv-theme=dark] .awv-mark{background:#e8e6df;color:#151517}.awv[data-awv-theme=dark] .awv-phase{color:#9b9b93}.awv[data-awv-theme=dark] .awv-phase.is-busy{color:#5fd08d}',
+      '.awv[data-awv-theme=dark] .awv-guide{stroke:#4c4c55}.awv[data-awv-theme=dark] .awv-wire{stroke:#d9d7d0}.awv[data-awv-theme=dark] .awv-flow{stroke:#eceae4}.awv[data-awv-theme=dark] .awv-ring{stroke:#e8e6df}.awv[data-awv-theme=dark] .awv-ink{stroke:#e8e6df;fill:#e8e6df}.awv[data-awv-theme=dark] .awv-ink.is-open{fill:#151517}.awv[data-awv-theme=dark] .awv-hub{fill:#e8e6df}.awv[data-awv-theme=dark] .awv-label{fill:#e8e6df;stroke:#151517}.awv[data-awv-theme=dark] .awv-zone-label{fill:#a3a39b}',
+      '.awv[data-awv-theme=dark] .awv-popover{background:#1d1d20;border-color:#5a5a62;color:#e8e6df}.awv[data-awv-theme=dark] .awv-popover p{color:#b9b7b0}.awv[data-awv-theme=dark] .awv-popover .awv-close{background:#26262a;border-color:#3a3a40;color:#e8e6df}.awv[data-awv-theme=dark] .awv-tether{background:#cfcdc6}.awv[data-awv-theme=dark] .awv-timeline{background:#111113}.awv[data-awv-theme=dark] .awv-row{background:#1d1d20}.awv[data-awv-theme=dark] .awv-controls{background:#151517}',
     ].join('\n')
 
     function useData(path, query, live) {
@@ -127,47 +132,53 @@ window.__ModuleLoader__.load({
 
     function layoutGraph(nodes) {
       const TOP = 24
-      const BOTTOM = 462
       const DOT_X = 424
       const zoneHead = 20
       const gap = 7
+      const floor = 5
+      const targetPitch = 11
+      const BASE_HEIGHT = 484
+      const MAX_HEIGHT = 1500
 
       const lanes = zones.map((zone) => {
         const groups = nodes.filter((node) => node.zone === zone.id)
         return { zone, groups: groups.slice(0, 8).sort((a, b) => a.id.localeCompare(b.id)) }
       })
       const totalGroups = lanes.reduce((sum, lane) => sum + lane.groups.length, 0)
-      const gaps = totalGroups * gap
-      const usable = BOTTOM - TOP - lanes.length * zoneHead - gaps
-      // Show every dot while the column can hold it; only crowding shrinks it per group.
-      const floor = 5
       const all = lanes.reduce((sum, lane) => sum + lane.groups.reduce((count, node) => count + node.dots.length, 0), 0)
+      const gaps = totalGroups * gap
+      // Crowded maps get more vertical room so objects keep their names.
+      // Past the cap, dots fold again and report how many are hidden.
+      const natural = TOP + lanes.length * zoneHead + gaps + all * targetPitch + 24
+      const height = Math.min(MAX_HEIGHT, Math.max(BASE_HEIGHT, natural))
+      const usable = height - TOP - lanes.length * zoneHead - gaps
       const perGroup = usable / Math.max(1, all) < floor
         ? Math.max(1, Math.floor(usable / floor / Math.max(1, totalGroups)))
         : Number.MAX_SAFE_INTEGER
       const drawn = lanes.map((lane) => lane.groups.reduce((sum, node) => sum + Math.min(perGroup, node.dots.length), 0))
       const totalDots = drawn.reduce((sum, value) => sum + value, 0)
-      const pitch = Math.max(floor, Math.min(11, usable / Math.max(1, totalDots)))
+      const pitch = Math.max(floor, Math.min(targetPitch, usable / Math.max(1, totalDots)))
 
       let cursor = TOP
-      return lanes.map(({ zone, groups }, lane) => {
+      const placed = lanes.map(({ zone, groups }, lane) => {
         const top = cursor
         cursor += zoneHead
         let inner = cursor
-        const placed = groups.map((node, index) => {
+        const items = groups.map((node, index) => {
           const shown = node.dots.slice(0, perGroup)
-          const height = Math.max(1, shown.length) * pitch
-          const center = inner + height / 2
+          const span = Math.max(1, shown.length) * pitch
+          const center = inner + span / 2
           const hub = { x: 211 + ((index * 61 + lane * 37) % 95), y: center }
           const dots = [...shown].sort((a, b) => a.id - b.id).map((dot, order) => ({
             dot, x: DOT_X, y: inner + (order + .5) * pitch,
           }))
-          inner += height + gap
+          inner += span + gap
           return { node, hub, dots, pitch, hidden: Math.max(0, node.dots.length - shown.length) }
         })
         cursor = inner
-        return { ...zone, top, count: groups.length, groups: placed, pitch }
+        return { ...zone, top, count: groups.length, groups: items, pitch }
       })
+      return { height, lanes: placed }
     }
 
     function ObjectDetails({ dot, jump }) {
@@ -259,7 +270,8 @@ window.__ModuleLoader__.load({
       const [boardLink, setBoardLink] = useState('')
       const [opening, setOpening] = useState(false)
       const desktop = location.protocol === 'dsh-app:'
-      const layout = useMemo(() => layoutGraph(nodes), [nodes])
+      const { height: mapHeight, lanes: layout } = useMemo(() => layoutGraph(nodes), [nodes])
+      const modelPoint = { x: 36, y: mapHeight / 2 }
       const busy = Boolean(phase) && phase.name !== 'idle' && Date.now() - phase.since < 15 * 60 * 1000
       useEffect(() => {
         if (!busy) return
@@ -328,7 +340,7 @@ window.__ModuleLoader__.load({
         const transform = svg.current?.getScreenCTM()
         return transform ? new DOMPoint(clientX, clientY).matrixTransform(transform.inverse()) : null
       }
-      function zoom(factor, x = 340, y = 242) {
+      function zoom(factor, x = 340, y = mapHeight / 2) {
         setView((old) => {
           const scale = Math.max(.75, Math.min(4, old.scale * factor))
           return { scale, x: x - (x - old.x) * scale / old.scale, y: y - (y - old.y) * scale / old.scale }
@@ -392,7 +404,7 @@ window.__ModuleLoader__.load({
         ) : null,
         h('div', { className: 'awv-plot', ref: plot },
           h('svg', {
-            ref: svg, viewBox: '0 0 680 484', className: dragging ? 'is-drag' : '',
+            ref: svg, viewBox: '0 0 680 ' + mapHeight, className: dragging ? 'is-drag' : '',
             role: 'group', 'aria-label': t('能力和对象', 'Capabilities and objects'),
             onKeyDown: (event) => { if (event.key === 'Escape' && popupDot) { event.stopPropagation(); closeCard() } },
             onClick: (event) => { if (event.target === svg.current && !moved.current && popupDot) closeCard() },
@@ -418,7 +430,7 @@ window.__ModuleLoader__.load({
             onPointerLeave: () => { if (!moved.current) stopDrag() },
           },
             h('g', { transform: 'translate(' + view.x + ' ' + view.y + ') scale(' + view.scale + ')' },
-              [192, 208, 224, 240, 256, 272].map((x) => h('line', { key: x, x1: x, x2: x, y1: 18, y2: 466, className: 'awv-guide' })),
+              [192, 208, 224, 240, 256, 272].map((x) => h('line', { key: x, x1: x, x2: x, y1: 18, y2: mapHeight - 18, className: 'awv-guide' })),
               layout.map(({ id, label, top, count, groups }) => h('g', { key: id },
                 h('path', { d: 'M327 ' + (top + 16) + ' H655', className: 'awv-guide' }),
                 h('text', { x: 650, y: top + 12, textAnchor: 'end', className: 'awv-zone-label' }, label + ' / ' + count),
@@ -431,7 +443,7 @@ window.__ModuleLoader__.load({
                       const { dot, x, y } = entry
                       const focused = selection?.dot === dot.id || hover === dot.id
                       const spacious = pitch >= 8.5
-                      const showLabel = !popupDot && (focused || dot.running || spacious || view.scale >= 1.6)
+                      const showLabel = !popupDot && (focused || dot.running || dot.failed || spacious || view.scale >= 1.6)
                       const callers = dot.callers || []
                       return h('g', { key: dot.id },
                         callers.slice(1, 6).map((caller, i) => h('path', {
@@ -453,7 +465,7 @@ window.__ModuleLoader__.load({
                         }),
                           h('circle', { cx: x, cy: y, r: 4, fill: 'transparent' }),
                           h('circle', { cx: x, cy: y, r: 6, className: 'awv-ring' + (focused ? ' is-on' : '') }),
-                          h('circle', { cx: x, cy: y, r: Math.min(3.4, 1.9 + Math.log2(dot.hits + 1) * .55), className: 'awv-ink', fill: dot.failed ? '#fdfdfb' : '#171717' }),
+                          h('circle', { cx: x, cy: y, r: Math.min(3.4, 1.9 + Math.log2(dot.hits + 1) * .55), className: 'awv-ink' + (dot.failed ? ' is-open' : '') }),
                           h('title', null, dot.label + (callers.length > 1 ? ' — ' + callers.map((caller) => caller.name + ' ×' + caller.hits).join(' · ') : '')),
                         ),
                         showLabel ? h('text', { x: x + 9, y: y + 3, className: 'awv-label', fontSize: focused ? 10 : 8, fontWeight: focused || dot.running ? 650 : 400 }, short(dot.label, 26)) : null,
@@ -468,7 +480,7 @@ window.__ModuleLoader__.load({
                     }),
                       h('circle', { cx: hub.x, cy: hub.y, r: r + 4, fill: 'transparent' }),
                       h('circle', { cx: hub.x, cy: hub.y, r: r + 4, className: 'awv-ring' + (selected ? ' is-on' : '') }),
-                      h('circle', { cx: hub.x, cy: hub.y, r, fill: '#161616' }),
+                      h('circle', { cx: hub.x, cy: hub.y, r, className: 'awv-hub' }),
                       h('text', { x: hub.x + 10, y: hub.y - 7, className: 'awv-label', fontSize: 10, fontWeight: 650 }, short(labelOf(node), 20)),
                     ),
                   )
@@ -478,7 +490,7 @@ window.__ModuleLoader__.load({
                 cx: modelPoint.x, cy: modelPoint.y, r: 13,
                 className: 'awv-ring is-on ' + (busy ? 'awv-beat' : 'awv-beat-idle'),
               }),
-              h('circle', { cx: modelPoint.x, cy: modelPoint.y, r: 6, fill: '#111' }),
+              h('circle', { cx: modelPoint.x, cy: modelPoint.y, r: 6, className: 'awv-hub' }),
               h('text', { x: modelPoint.x, y: modelPoint.y + 21, className: 'awv-label', fontSize: 12, fontWeight: 650 }, t('模型', 'Model')),
               h('text', { x: modelPoint.x, y: modelPoint.y + 35, className: 'awv-label', fontSize: 9 }, countOf(model.requests, ' 次响应', 'reply', 'replies')),
             ),
@@ -504,9 +516,17 @@ window.__ModuleLoader__.load({
         return h(onClick ? 'button' : 'div', { className: 'awv-metric', type: onClick ? 'button' : undefined, onClick },
           h('b', null, value), h('span', null, label))
       }
+      const money = (value) => {
+        const usd = Number(value) || 0
+        return usd >= 1 ? '$' + usd.toFixed(2) : usd >= 0.01 ? '$' + usd.toFixed(3) : '$' + usd.toFixed(4)
+      }
       const list = (rows) => h('div', { className: 'awv-list' }, rows)
       function row(key, title, value, action, color, pressed) {
         return h('button', { key, type: 'button', title, onClick: action, 'aria-pressed': pressed },
+          color ? h('i', { style: { '--dot': color } }) : null, h('b', null, title), h('span', null, value))
+      }
+      function statRow(key, title, value, color) {
+        return h('div', { key, className: 'awv-list-note' },
           color ? h('i', { style: { '--dot': color } }) : null, h('b', null, title), h('span', null, value))
       }
       return h('aside', { className: 'awv-inspector', 'aria-label': t('会话活动', 'Session activity') },
@@ -515,11 +535,31 @@ window.__ModuleLoader__.load({
           metric(t('失败', 'Failures'), fmt(data.failures), failures),
           metric(t('运行中', 'Running'), fmt(data.running)),
           metric(t('输入 / 输出', 'Tokens in / out'), fmt(data.model.input) + ' / ' + fmt(data.model.output)),
+          metric(t('花费（估算）', 'Spend (est.)'), data.spend?.priced ? money(data.spend.usd) : '—'),
         ),
         active ? h(React.Fragment, null,
           h('h3', null, t('正在执行', 'Running now')),
           list(data.active.map((call) => row(call.seq, call.name + (call.summary ? ' · ' + call.summary : ''),
             Math.max(0, Math.floor((elapsed - call.time) / 1000)) + 's', () => jump(call.seq), '#68c9ad'))),
+        ) : null,
+        data.topSteps?.length ? h(React.Fragment, null,
+          h('h3', null, t('花费最高的步骤', 'Most expensive steps')),
+          list(data.topSteps.map((step, index) => row('step-' + step.seq,
+            index + 1 + '. ' + money(step.usd) + (step.peak ? t(' · 峰时', ' · peak') : t(' · 谷时', ' · off-peak')),
+            t('入 ', 'in ') + fmt(step.prompt) + t(' / 出 ', ' / out ') + fmt(step.output),
+            () => jump(step.seq), index === 0 ? '#b3384c' : '#767672'))),
+          h('p', { className: 'awv-secondary' }, t(
+            '按官方 API 价目估算（' + (data.spend?.asOf || '') + '，分峰时与谷时），不是账单。一次请求内同时跑多个工具时无法再细分。',
+            'Estimated from the public API price list (' + (data.spend?.asOf || '') + ', peak and off-peak). Not a bill. Tools that share one request cannot be split further.')),
+        ) : null,
+        data.sessions?.length > 1 ? h(React.Fragment, null,
+          h('h3', null, t('子 Agent', 'Subagents')),
+          list(data.sessions.map((session) => statRow('agent-' + session.id,
+            '·'.repeat(Math.min(session.depth || 0, 6)) + ' '
+            + (session.depth === 0 ? t('当前会话', 'Current session') : (session.label || String(session.id).slice(-8)))
+            + (session.running ? ' ●' : ''),
+            countOf(session.calls || 0, ' 次调用', 'call', 'calls') + ' · ' + (session.priced ? money(session.usd) : '—'),
+            session.running ? '#1a7f4b' : '#767672'))),
         ) : null,
         node ? h(React.Fragment, null,
           h('div', { className: 'awv-inspect-head' },
@@ -543,6 +583,16 @@ window.__ModuleLoader__.load({
       if (item.kind === 'turn') {
         const label = item.phase === 'start' ? t('开始', 'Started') : t('结束', 'Ended')
         return h('div', { className: 'awv-turn' }, t('第 ', 'Turn ') + item.turn + t(' 轮 · ', ' · ') + label)
+      }
+      if (item.kind === 'thinking') {
+        return h('article', { className: 'awv-row awv-thinking', 'data-seq': item.seq },
+          h('div', { className: 'awv-rowhead' },
+            h('strong', null, t('思考', 'Thinking')),
+            item.step != null ? h('span', { className: 'awv-secondary' }, t('第 ', 'step ') + item.step + t(' 步', '')) : null,
+            h('time', null, clock(item.time)),
+          ),
+          h('details', { open: true }, h('summary', null, t('推理过程', 'Reasoning')), h('p', null, item.text || '')),
+        )
       }
       const call = item.kind === 'call'
       const result = item.result
@@ -609,10 +659,26 @@ window.__ModuleLoader__.load({
       }
       const [full, setFull] = useState(() => { try { return localStorage.getItem('awv.full') === '1' } catch { return false } })
       useEffect(() => { try { localStorage.setItem('awv.full', full ? '1' : '0') } catch { /* storage unavailable */ } }, [full])
+      const [theme, setTheme] = useState(() => { try { return localStorage.getItem('awv.theme') || 'system' } catch { return 'system' } })
+      const [osDark, setOsDark] = useState(() => Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
+      useEffect(() => {
+        const query = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null
+        if (!query) return undefined
+        const onChange = (event) => setOsDark(event.matches)
+        query.addEventListener('change', onChange)
+        return () => query.removeEventListener('change', onChange)
+      }, [])
+      useEffect(() => { try { localStorage.setItem('awv.theme', theme) } catch { /* storage unavailable */ } }, [theme])
+      const resolvedTheme = theme === 'system' ? (osDark ? 'dark' : 'light') : theme
+      const themes = ['system', 'light', 'dark']
+      const themeIcon = { system: '◐', light: '☀', dark: '☾' }
+      const themeName = {
+        system: t('跟随系统', 'Follow system'), light: t('浅色', 'Light'), dark: t('深色', 'Dark'),
+      }
       const status = error === '404' ? t('找不到这个会话。', 'This session could not be found.')
         : error === '401' || error === '403' ? t('会话访问已失效，请刷新 Harness 后重试。', 'Session access expired. Reload Harness to try again.')
           : t('暂时无法读取活动。', 'Activity is temporarily unavailable.')
-      return h('section', { className: 'awv' + (full ? ' is-full' : ''), role: 'dialog', 'aria-label': t('工作流', 'Workflow') },
+      return h('section', { className: 'awv' + (full ? ' is-full' : ''), 'data-awv-theme': resolvedTheme, role: 'dialog', 'aria-label': t('工作流', 'Workflow') },
         h('style', null, CSS),
         h('div', { className: 'awv-header' },
           h('span', { className: 'awv-mark', 'aria-hidden': true }, '◇'),
@@ -629,6 +695,12 @@ window.__ModuleLoader__.load({
               return t(count + ' 个子会话在跑', count + (count > 1 ? ' subagents' : ' subagent') + ' running')
             })())
             : null,
+          h('button', {
+            className: 'awv-close', type: 'button',
+            onClick: () => setTheme(themes[(themes.indexOf(theme) + 1) % themes.length]),
+            'aria-label': t('配色', 'Colour scheme') + '：' + themeName[theme],
+            title: t('配色', 'Colour scheme') + '：' + themeName[theme],
+          }, themeIcon[theme]),
           h('button', {
             className: 'awv-close', type: 'button', onClick: () => setFull(!full),
             'aria-label': t(full ? '还原面板大小' : '占满窗口', full ? 'Restore panel size' : 'Fill the window'),
@@ -651,7 +723,7 @@ window.__ModuleLoader__.load({
             h(Inspector, { data, selection, select, jump, failures: () => openTimeline('failed') }),
           ) : h('div', { className: 'awv-timeline' },
             h('div', { className: 'awv-controls' },
-              [['all', t('全部', 'All')], ['tools', t('工具', 'Tools')], ['failed', t('失败', 'Failures')]].map(([id, label]) =>
+              [['all', t('全部', 'All')], ['tools', t('工具', 'Tools')], ['thinking', t('思考', 'Thinking')], ['failed', t('失败', 'Failures')]].map(([id, label]) =>
                 h('button', { key: id, type: 'button', className: 'awv-button', 'aria-pressed': id === filter, onClick: () => openTimeline(id) }, label)),
               h('div', { className: 'awv-page' },
                 data.older != null ? h('button', { type: 'button', className: 'awv-button', onClick: () => setCursor({ key: 'before', seq: data.older }) }, t('更早', 'Older')) : null,
@@ -660,7 +732,7 @@ window.__ModuleLoader__.load({
               ),
             ),
             h('div', { className: 'awv-feed', ref: list },
-              data.items.length ? data.items.map((item) => h(FeedRow, { key: item.seq, item, selected: cursor?.key === 'at' && cursor.seq === item.seq }))
+              data.items.length ? data.items.map((item) => h(FeedRow, { key: item.seq + ':' + item.kind, item, selected: cursor?.key === 'at' && cursor.seq === item.seq }))
                 : h('p', { className: 'awv-note' }, data.missing ? t('这条记录已超出当前可回看的范围。', 'This record is outside the available history.') : t('没有符合条件的记录。', 'No matching activity.')),
             ),
           ),

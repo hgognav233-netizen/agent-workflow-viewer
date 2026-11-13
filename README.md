@@ -20,9 +20,11 @@ To try the development version, clone this repository and install the checkout a
 
 ## Use the viewer
 
-- **Overview** shows tool calls, failures, active calls, and token usage. Follow the moving paths to see which tools are running. Select a dot to open its detail card next to it. Repeated access to the same object appears as one dot.
+- **Overview** shows tool calls, failures, active calls, token usage, and estimated spend. Follow the moving paths to see which tools are running. Select a dot to open its detail card next to it. Repeated access to the same object appears as one dot; crowded maps grow taller so names stay readable.
 - **Running now** lists simultaneous calls. Select a call to open its event in the timeline.
-- **Timeline** shows message excerpts, call status, duration, and result excerpts. Filter for failures, or page through retained activity.
+- **Timeline** shows message excerpts, the model's reasoning, call status, duration, and result excerpts. Filter by all, tools, thinking, or failures, and page through retained activity.
+- **Spend (estimated)** shows the total and the most expensive steps; select one to open it in the timeline. Prices are the public API list with peak and off-peak rates. Tools that share one request cannot be split further, and this is an estimate rather than a bill.
+- **Subagents** lists who dispatched which subagent — using the label given at dispatch — with its call count and estimated spend.
 - **Session selector** opens a subagent's own activity when Harness reports it as a descendant of the current conversation.
 
 The graph groups activity into web tools, local processes, files and skills, and external services. It prioritizes active, failed, and recent objects when space is limited. Counts reflect the latest 3,000 events owned by the selected session. The timeline shows up to 400 matching entries per page. The interface uses Simplified Chinese when the page language is Chinese and English otherwise.
@@ -31,7 +33,7 @@ Use **Browser board** in DSH Desktop or **Detach** in DSH Web to open the viewer
 
 ## Data and access
 
-The plugin reads Harness session logs and serves the map and timeline through the Harness web server. It does not modify logs or send them to another service. Activity responses can contain message excerpts, tool results, local paths, or command summaries. Review screenshots and diagnostics before sharing them.
+The plugin reads Harness session logs and serves the map and timeline through the Harness web server. It does not modify logs or send them to another service. Activity responses can contain message excerpts, the model's reasoning text, tool results, local paths, or command summaries. Review screenshots and diagnostics before sharing them. Spend is estimated by the plugin from the public price list; Harness itself records no money.
 
 Activity routes request authenticated Harness access. On older hosts without route admission, a peerless request is allowed only through a loopback listener with a local authority and no cross-site browser context. Keep older hosts local and avoid publishing their viewer routes through a proxy. [Harness Web Server documentation](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/web-server.md)
 

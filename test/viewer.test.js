@@ -236,3 +236,66 @@ test('the standalone board carries the panel views, colour schemes, and interact
   assert.equal(board.headers.get('referrer-policy'), 'no-referrer')
   assert((await board.text()).includes('view-only'))
 })
+
+test('reasoning blocks become thinking entries, are filterable, and are priced from token buckets', async () => {
+  const events = [
+    event(0, 'request/header', { header: { config: { provider: 'deepseek-account', model: 'deepseek-flash' } } }),
+    call(1, 'read', { file_path: '/project/plan.md' }),
+    result(2, 1),
+    event(3, 'assistant/message', {
+      step: 2,
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'reasoning', text: 'check the plan before editing' },
+          { type: 'text', text: 'edited the plan' },
+        ],
+      },
+      usage: { inputTokens: 1000, outputTokens: 200, cacheReadTokens: 4000, cacheWriteTokens: 0, totalTokens: 5200 },
+    }),
+  ]
+  const { get } = setup({ read: async () => ({ events }) })
+  const timeline = (await get('snapshot')).body
+  const thinking = timeline.items.filter((item) => item.kind === 'thinking')
+  assert.equal(thinking.length, 1)
+  assert.equal(thinking[0].text, 'check the plan before editing')
+  assert.equal(thinking[0].step, 2)
+  assert.deepEqual((await get('snapshot', { filter: 'thinking' })).body.items.map((item) => item.kind), ['thinking'])
+  const map = (await get('map')).body
+  assert.equal(map.spend.requests, 1)
+  assert.equal(map.spend.priced, 1)
+  // 1970-01-01 is a Thursday at 00:00 UTC: off-peak rates.
+  const expected = (4000 * 0.003 + 1000 * 0.15 + 200 * 0.6) / 1e6
+  assert(Math.abs(map.spend.usd - expected) < 1e-12)
+  assert.equal(map.spend.asOf.length > 0, true)
+  assert.equal(map.topSteps.length, 1)
+  assert(Math.abs(map.topSteps[0].usd - expected) < 1e-12)
+  // Prompt growth since the previous request is attributed to the capability it came from.
+  assert(Math.abs(map.nodes[0].usd - (5000 * 0.15) / 1e6) < 1e-12)
+})
+
+test('a subagent keeps the label its parent dispatched it with', async () => {
+  const sessions = new Map([[root, live([event(0, 'subagent/catalog', { childId: child, label: 'facade builder' })])]])
+  const { get } = setup({ sessions, children: [{ session: record(child, root) }] })
+  const map = (await get('map')).body
+  assert.equal(map.catalog.find((entry) => entry.id === child).label, 'facade builder')
+  assert.equal(map.sessions.find((session) => session.id === child).label, 'facade builder')
+  assert.equal(map.sessions.find((session) => session.id === root).depth, 0)
+})
+
+test('an unpriced model reports spend as unknown instead of a number', async () => {
+  const events = [
+    call(0, 'read', { file_path: '/project/plan.md' }),
+    result(1, 0),
+    event(2, 'assistant/message', {
+      message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
+      usage: { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 1100 },
+    }),
+  ]
+  const { get } = setup({ read: async () => ({ events }) })
+  const map = (await get('map')).body
+  assert.equal(map.spend.priced, 0)
+  assert.equal(map.spend.unpriced, 1)
+  assert.equal(map.spend.usd, 0)
+  assert.equal(map.topSteps.length, 0)
+})
