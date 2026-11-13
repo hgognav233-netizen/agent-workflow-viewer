@@ -559,8 +559,14 @@ window.__ModuleLoader__.load({
             h('div', { className: 'awv-model' }, data?.model.name || t('DeepSeek Harness 会话', 'DeepSeek Harness session'))),
           sessions.length > 1 ? h('select', { className: 'awv-select', value: focus, onChange: switchSession, 'aria-label': t('会话', 'Session') },
             sessions.map((session) => h('option', { key: session.id, value: session.id },
-              session.depth === 0 ? t('当前会话', 'Current session') : '·'.repeat(Math.min(session.depth, 6)) + ' ' + (session.label || t('子 Agent ', 'Subagent ') + session.id.slice(-8)))),
+              (session.running ? '● ' : '') + (session.depth === 0 ? t('当前会话', 'Current session') : '·'.repeat(Math.min(session.depth, 6)) + ' ' + (session.label || t('子 Agent ', 'Subagent ') + session.id.slice(-8))))),
           ) : null,
+          sessions.filter((session) => session.running && session.id !== focus).length
+            ? h('span', { className: 'awv-phase is-busy' }, h('i'), (() => {
+              const count = sessions.filter((session) => session.running && session.id !== focus).length
+              return t(count + ' 个子会话在跑', count + (count > 1 ? ' subagents' : ' subagent') + ' running')
+            })())
+            : null,
           h('button', { className: 'awv-close', ref: closeRef, type: 'button', onClick: close, 'aria-label': t('关闭工作流', 'Close workflow') }, '×'),
         ),
         h('nav', { className: 'awv-nav', 'aria-label': t('工作流视图', 'Workflow views') },

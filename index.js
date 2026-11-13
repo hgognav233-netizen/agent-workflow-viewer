@@ -350,7 +350,8 @@ function paint(data) {
   var model = data.model || {};
   byId('model').textContent = (model.name || '') + (model.requests ? ' · ' + model.requests + ' 次响应' : '');
   byId('totals').textContent = '调用 ' + fmt(data.calls) + ' · 失败 ' + fmt(data.failures) + ' · 运行中 ' + fmt(data.running)
-    + ' · tokens ' + fmt(model.input) + ' / ' + fmt(model.output);
+    + ' · tokens ' + fmt(model.input) + ' / ' + fmt(model.output)
+    + (data.working ? ' · 子会话在跑 ' + data.working : '');
   var active = data.active || [];
   byId('active').innerHTML = active.length ? active.map(function (call) {
     return '<div class="row"><b>' + esc(call.name) + '</b><span>' + esc(String(call.summary || '').slice(0, 44)) + '</span></div>';
@@ -376,6 +377,8 @@ setInterval(paintPhase, 250);
 
 export function apply(ctx) {
   const feeds = new Map()
+  // Live running state per session, so a busy subagent is visible from the root view.
+  const live = new Map()
   const lineages = new Map()
   const epoch = Date.now().toString(36)
   let revision = 0
@@ -482,6 +485,14 @@ export function apply(ctx) {
     })
   }
 
+  ctx.on('agent/status', (payload) => {
+    const agent = payload?.agent
+    if (agent?.id) live.set(agent.id, payload.status === 'running')
+  })
+  ctx.on('agent/disposed', (payload) => {
+    if (payload?.agent?.id) live.delete(payload.agent.id)
+  })
+
   // Older hosts lack route admission. Limit peerless reads to the loopback listener.
   function denied(request, peer) {
     const loopback = /^(?:localhost|127\.0\.0\.1|\[?::1\]?)$/i
@@ -502,13 +513,15 @@ export function apply(ctx) {
         if (query.has(name) && !/^\d{1,15}$/.test(query.get(name))) return json({ error: 'invalid_cursor' }, 400)
       }
       try {
-        const { rows: sessions, version: lineageVersion } = await lineageFor(root)
-        if (!sessions.some((row) => row.id === focus)) return json({ error: 'session_not_found' }, 404)
+        const { rows, version: lineageVersion } = await lineageFor(root)
+        if (!rows.some((row) => row.id === focus)) return json({ error: 'session_not_found' }, 404)
+        const sessions = rows.map((row) => ({ ...row, running: live.get(row.id) === true }))
+        const working = sessions.filter((row) => row.running).length
         const feed = await readFeed(focus)
-        const version = [epoch, feed.revision, lineageVersion, kind, query.get('filter'), query.get('at'), query.get('before'), query.get('after')].join('-')
+        const version = [epoch, feed.revision, lineageVersion, working, kind, query.get('filter'), query.get('at'), query.get('before'), query.get('after')].join('-')
         if (query.get('version') === version) return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
         const data = kind === 'map' ? aggregate(feed) : timeline(feed, query)
-        return json({ ...data, root, focus, sessions, version, partial: feed.start > feed.inherited, model: modelOf(feed) })
+        return json({ ...data, root, focus, sessions, working, version, partial: feed.start > feed.inherited, model: modelOf(feed) })
       } catch (error) {
         if (error?.code === 'SESSION_QUERY_SESSION_NOT_FOUND') return json({ error: 'session_not_found' }, 404)
         return json({ error: 'session_unavailable' }, 503)

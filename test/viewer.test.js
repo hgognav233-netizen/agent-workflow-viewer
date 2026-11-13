@@ -15,9 +15,17 @@ const record = (id, parentSession) => ({ header: { id, parentSession } })
 
 function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [] } = {}) {
   const routes = new Map()
+  const listeners = new Map()
+  const emit = (name, payload) => {
+    for (const listener of listeners.get(name) ?? []) listener(payload)
+  }
   apply({
     get: (name) => name === 'sessions' ? sessions : undefined,
     effect: (register) => register(),
+    on: (name, listener) => {
+      listeners.set(name, [...(listeners.get(name) ?? []), listener])
+      return () => listeners.set(name, (listeners.get(name) ?? []).filter((entry) => entry !== listener))
+    },
     webServer: { host, register: (route) => routes.set(route.path, route) },
     sessionQuery: {
       readSession: read,
@@ -29,7 +37,7 @@ function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessio
     const response = await routes.get('/agent-workflow/' + path).resource(request, peer)
     return { status: response.status, body: response.status === 204 ? null : await response.json() }
   }
-  return { get, routes }
+  return { get, routes, emit }
 }
 
 function live(events, inheritedEventCount = 0) {
@@ -145,4 +153,16 @@ test('activity routes request Harness admission and legacy peerless access is li
   const remote = setup({ host: '0.0.0.0' })
   assert.equal((await remote.get('snapshot')).status, 403)
   assert.equal((await remote.get('snapshot', {}, { peer: {} })).status, 200)
+})
+
+test('a working subagent stays visible from the root view', async () => {
+  const child = 'child-running'
+  const { get, emit } = setup({ children: [{ session: record(child, root), descendants: [] }] })
+  emit('agent/status', { agent: { id: child }, status: 'running' })
+  const busy = await get('map')
+  assert.equal(busy.body.working, 1)
+  assert.equal(busy.body.sessions.find((session) => session.id === child).running, true)
+  emit('agent/status', { agent: { id: child }, status: 'idle' })
+  const idle = await get('map')
+  assert.equal(idle.body.working, 0)
 })
