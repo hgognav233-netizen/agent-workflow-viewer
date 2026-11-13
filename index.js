@@ -316,14 +316,15 @@ function boardHtml(root, focus, detached = false) {
 <html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>工作流</title>
 <style>
-:root{color-scheme:light dark}
+:root{color-scheme:light dark;--ink:#171717;--paper:#fdfdfb;--guide:#d8d8d2;--soft:#555;--bad:#a33c47;--live:#1a7f4b}
+@media (prefers-color-scheme:dark){:root{--ink:#e8e6df;--paper:#151517;--guide:#34343b;--soft:#9b9b93;--bad:#e0798a;--live:#5fd08d}}
 body{margin:0;font:13px/1.55 ui-sans-serif,system-ui,"Segoe UI",sans-serif;background:#fdfdfb;color:#171717}
 @media (prefers-color-scheme:dark){body{background:#151517;color:#eceae4}header,section{border-color:#2b2b2f}}
 header{padding:12px 14px;border-bottom:1px solid #e5e5e0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 h1{font-size:15px;margin:0;letter-spacing:-.02em}
 .phase{font:11px ui-monospace,monospace;display:inline-flex;gap:6px;align-items:center;color:#666}
 .phase i{width:7px;height:7px;border-radius:50%;background:#9a9a92;display:inline-block}
-.phase.busy i{background:#1a7f4b;animation:beat 1.4s ease-out infinite}
+.phase.busy i{background:var(--live);animation:beat 1.4s ease-out infinite}
 @keyframes beat{0%{box-shadow:0 0 0 0 rgba(26,127,75,.55)}100%{box-shadow:0 0 0 9px rgba(26,127,75,0)}}
 section{padding:11px 14px;border-bottom:1px solid #eeeeea}
 h2{font-size:10px;letter-spacing:.1em;color:#777;margin:0 0 7px;text-transform:uppercase;font-weight:600}
@@ -332,7 +333,7 @@ h2{font-size:10px;letter-spacing:.1em;color:#777;margin:0 0 7px;text-transform:u
 .row span{margin-left:auto;color:#666;font:11px ui-monospace,monospace;white-space:nowrap}
 .muted{color:#7b7b76;font-size:12px}
 #plot svg{display:block;width:100%;height:auto}
-.live-wire{stroke:#1a7f4b;stroke-dasharray:3 19;animation:flow 1.15s linear infinite}
+.live-wire{stroke:var(--live);stroke-dasharray:3 19;animation:flow 1.15s linear infinite}
 .live-ring{transform-box:fill-box;transform-origin:center;animation:ping 1.45s ease-out infinite}
 @keyframes flow{to{stroke-dashoffset:-44}}
 @keyframes ping{from{transform:scale(.8);opacity:.85}to{transform:scale(2);opacity:0}}
@@ -405,27 +406,27 @@ function drawGraph(data) {
   var out = [];
   out.push('<svg viewBox="0 0 680 484" role="img" aria-label="能力图">');
   [192, 208, 224, 240, 256, 272].forEach(function (x) {
-    out.push('<line x1="' + x + '" x2="' + x + '" y1="18" y2="466" stroke="#d8d8d2" stroke-width=".5" stroke-dasharray="1 4"/>');
+    out.push('<line x1="' + x + '" x2="' + x + '" y1="18" y2="466" stroke="var(--guide)" stroke-width=".5" stroke-dasharray="1 4"/>');
   });
   layout.forEach(function (zone) {
-    out.push('<line x1="327" x2="655" y1="' + (zone.top + 16) + '" y2="' + (zone.top + 16) + '" stroke="#d8d8d2" stroke-width=".5"/>');
-    out.push('<text x="655" y="' + (zone.top + 12) + '" text-anchor="end" font-size="9" fill="#555">' + esc(zone.label + ' / ' + zone.count) + '</text>');
+    out.push('<line x1="327" x2="655" y1="' + (zone.top + 16) + '" y2="' + (zone.top + 16) + '" stroke="var(--guide)" stroke-width=".5"/>');
+    out.push('<text x="655" y="' + (zone.top + 12) + '" text-anchor="end" font-size="9" fill="var(--soft)">' + esc(zone.label + ' / ' + zone.count) + '</text>');
     zone.groups.forEach(function (group) {
       var bend = (group.hub.y - MODEL.y) * .16;
-      out.push('<path d="' + curvePath(MODEL, group.hub, bend) + '" class="' + (group.node.running ? 'live-wire' : '') + '" fill="none" stroke="#181818" stroke-width="' + (group.node.running ? 1.3 : .7) + '" opacity="' + (group.node.running ? .9 : .25) + '"/>');
+      out.push('<path d="' + curvePath(MODEL, group.hub, bend) + '" class="' + (group.node.running ? 'live-wire' : '') + '" fill="none" stroke="var(--ink)" stroke-width="' + (group.node.running ? 1.3 : .7) + '" opacity="' + (group.node.running ? .9 : .25) + '"/>');
       group.dots.forEach(function (entry) {
         var dot = entry.dot;
         var radius = Math.min(3.4, 1.9 + Math.log2((dot.hits || 1) + 1) * .55);
-        out.push('<path d="' + curvePath(group.hub, entry, (entry.y - group.hub.y) * .16) + '" class="' + (dot.running ? 'live-wire' : '') + '" fill="none" stroke="#181818" stroke-width=".5" opacity=".18"/>');
-        if (dot.running) out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + (radius + 3) + '" fill="none" stroke="#1a7f4b" class="live-ring"/>');
-        out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + radius + '" fill="' + (dot.failed ? '#fdfdfb' : '#171717') + '" stroke="' + (dot.failed ? '#a33c47' : 'none') + '" stroke-width="1"/>');
+        out.push('<path d="' + curvePath(group.hub, entry, (entry.y - group.hub.y) * .16) + '" class="' + (dot.running ? 'live-wire' : '') + '" fill="none" stroke="var(--ink)" stroke-width=".5" opacity=".18"/>');
+        if (dot.running) out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + (radius + 3) + '" fill="none" stroke="var(--live)" class="live-ring"/>');
+        out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + radius + '" fill="' + (dot.failed ? 'var(--paper)' : 'var(--ink)') + '" stroke="' + (dot.failed ? 'var(--bad)' : 'none') + '" stroke-width="1"/>');
       });
-      out.push('<circle cx="' + group.hub.x + '" cy="' + group.hub.y + '" r="' + (3 + Math.min(4, Math.log2((group.node.count || 1) + 1))) + '" fill="#161616"/>');
-      out.push('<text x="' + (group.hub.x + 9) + '" y="' + (group.hub.y - 6) + '" font-size="9.5" fill="#333">' + esc(group.node.label || group.node.id) + '</text>');
+      out.push('<circle cx="' + group.hub.x + '" cy="' + group.hub.y + '" r="' + (3 + Math.min(4, Math.log2((group.node.count || 1) + 1))) + '" fill="var(--ink)"/>');
+      out.push('<text x="' + (group.hub.x + 9) + '" y="' + (group.hub.y - 6) + '" font-size="9.5" fill="var(--ink)">' + esc(group.node.label || group.node.id) + '</text>');
     });
   });
-  out.push('<circle cx="' + MODEL.x + '" cy="' + MODEL.y + '" r="6" fill="#111"/>');
-  out.push('<text x="' + MODEL.x + '" y="' + (MODEL.y + 20) + '" font-size="11" fill="#222">模型</text>');
+  out.push('<circle cx="' + MODEL.x + '" cy="' + MODEL.y + '" r="6" fill="var(--ink)"/>');
+  out.push('<text x="' + MODEL.x + '" y="' + (MODEL.y + 20) + '" font-size="11" fill="var(--ink)">模型</text>');
   out.push('</svg>');
   byId('plot').innerHTML = out.join('');
 }
@@ -711,7 +712,10 @@ export function apply(ctx) {
       return json({
         version, calls, failures, running, phase, model: modelOf(feed),
         active: active.map(({ name, time }) => ({ name, time })),
-        nodes: nodes.slice(0, 9).map(({ label, kind, count, hits, failed }) => ({ label, kind, count, hits, failed })),
+        nodes: nodes.slice(0, 9).map(({ id, label, kind, zone, count, hits, failed, running, dots }) => ({
+          id, label, kind, zone, count, hits, failed, running,
+          dots: dots.slice(0, 24).map((dot) => ({ id: dot.id, hits: dot.hits, failed: dot.failed, running: dot.running })),
+        })),
       })
     } catch {
       return json({ error: 'session_unavailable' }, 503)
