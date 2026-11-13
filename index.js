@@ -215,9 +215,11 @@ function aggregate(feed) {
     }
     let dot = group.objects.get(key)
     if (!dot) {
-      dot = { id: item.seq, label, detail, hits: 0, failed: 0, running: 0, seq: item.seq, timed: 0, totalMs: 0 }
+      dot = { id: item.seq, label, detail, hits: 0, failed: 0, running: 0, seq: item.seq, timed: 0, totalMs: 0, callers: new Map() }
       group.objects.set(key, dot)
     }
+    // Which distinct tool reached this object, so the graph can draw one line per caller.
+    dot.callers.set(item.name, (dot.callers.get(item.name) ?? 0) + 1)
     group.hits++
     dot.hits++
     if (item.result?.time && item.time) {
@@ -239,7 +241,10 @@ function aggregate(feed) {
   const nodes = [...groups.values()].map(({ objects, ...group }) => ({
     ...group,
     count: objects.size,
-    dots: [...objects.values()].sort((a, b) => b.seq - a.seq),
+    dots: [...objects.values()].map((dot) => {
+      const callers = [...dot.callers].map(([name, hits]) => ({ name, hits })).sort((a, b) => b.hits - a.hits)
+      return { ...dot, callers, caller: callers[0]?.name ?? '' }
+    }).sort((a, b) => b.seq - a.seq),
   })).sort((a, b) => b.running - a.running || b.failed - a.failed || b.hits - a.hits || a.id.localeCompare(b.id))
   // Prioritize current and failed objects before filling the remaining graph budget.
   const visible = nodes.flatMap((node) => node.dots.slice(0, 12).concat(node.dots.slice(12).filter((dot) => dot.running || dot.failed)))

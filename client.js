@@ -176,6 +176,9 @@ window.__ModuleLoader__.load({
           dot.running ? ' · ' + statusLabel.running : '',
         ),
         dot.timed ? h('p', { className: 'awv-secondary' }, t('平均 ', 'Average ') + durationOf(dot.totalMs / dot.timed)) : null,
+        dot.callers && dot.callers.length > 1
+          ? h('p', { className: 'awv-secondary' }, t('调用方：', 'Callers: ') + dot.callers.map((caller) => caller.name + ' ×' + caller.hits).join('、'))
+          : null,
         h('div', { className: 'awv-actions' },
           h('button', { type: 'button', className: 'awv-button', onClick: () => jump(dot.seq) }, t('在时间线中查看', 'Open in timeline')),
           dot.failureSeq != null && dot.failureSeq !== dot.seq
@@ -349,10 +352,12 @@ window.__ModuleLoader__.load({
                       const focused = selection?.dot === dot.id || hover === dot.id
                       const spacious = pitch >= 8.5
                       const showLabel = !popupDot && (focused || dot.running || spacious || view.scale >= 1.6)
+                      const callers = dot.callers || []
                       return h('g', { key: dot.id },
-                        Array.from({ length: Math.min(4, dot.hits - 1) }, (_, i) => h('path', {
-                          key: i, d: curve(hub, entry, (y - hub.y) * .16 + (i % 2 ? -1 : 1) * (i + 1) * 7),
-                          className: 'awv-wire', opacity: .1,
+                        callers.slice(1, 6).map((caller, i) => h('path', {
+                          key: 'c:' + caller.name,
+                          d: curve(hub, entry, (y - hub.y) * .16 + (i % 2 ? -1 : 1) * (i + 1) * 6),
+                          className: 'awv-wire', opacity: .16,
                         })),
                         path(curve(hub, entry, (y - hub.y) * .16), false, dot.running, focused, selection && !selected && !focused),
                         h('g', hit(dot.label, (event) => {
@@ -369,7 +374,7 @@ window.__ModuleLoader__.load({
                           h('circle', { cx: x, cy: y, r: 4, fill: 'transparent' }),
                           h('circle', { cx: x, cy: y, r: 6, className: 'awv-ring' + (focused ? ' is-on' : '') }),
                           h('circle', { cx: x, cy: y, r: Math.min(3.4, 1.9 + Math.log2(dot.hits + 1) * .55), className: 'awv-ink', fill: dot.failed ? '#fdfdfb' : '#171717' }),
-                          h('title', null, dot.label),
+                          h('title', null, dot.label + (callers.length > 1 ? ' — ' + callers.map((caller) => caller.name + ' ×' + caller.hits).join(' · ') : '')),
                         ),
                         showLabel ? h('text', { x: x + 9, y: y + 3, className: 'awv-label', fontSize: focused ? 10 : 8, fontWeight: focused || dot.running ? 650 : 400 }, short(dot.label, 26)) : null,
                       )
