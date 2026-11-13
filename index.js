@@ -2,6 +2,7 @@
  * Fold the Harness session log once, then serve bounded views of that projection.
  */
 import { randomBytes } from 'node:crypto'
+import { canvasHtml } from './canvas.js'
 
 export const inject = ['webServer', 'sessionQuery']
 
@@ -13,6 +14,7 @@ const LOG_WINDOW = 3000
 const TIMELINE_LIMIT = 400
 const GRAPH_DOT_LIMIT = 96
 const MAX_SESSIONS = 40
+const MAX_ROOTS = 6
 const LINEAGE_TTL = 4000
 const FILE_TOOLS = new Set(['read', 'write', 'edit', 'read_image', 'glob', 'grep'])
 const SHELL_TOOLS = new Set(['pwsh', 'bash', 'shell', 'exec_command'])
@@ -1277,6 +1279,144 @@ export function apply(ctx) {
     }
   }
 
+  // Cross-session overview: every recent session with its own numbers.
+  // Feeds that are not cached yet are warmed a few per request, never on the
+  // critical path, so one slow log cannot hold the page.
+  async function overviewResource(request, peer) {
+    if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
+    const query = new URL(request.url, 'http://localhost').searchParams
+    try {
+      const corpus = await ctx.sessionQuery.listSessions()
+      const records = (corpus || []).slice(0, MAX_SESSIONS).map((record) => ({
+        id: record.header?.id || '',
+        parent: record.header?.parentSession || null,
+        live: record.live === true,
+        created: record.header?.createdAt || 0,
+      })).filter((row) => row.id)
+      const store = ctx.get('sessions')
+      if (store && typeof store.list === 'function') {
+        for (const session of store.list()) {
+          const id = session.header ? session.header.id : String(session.id)
+          live.set(id, true)
+        }
+      }
+      let warm = 6
+      const rows = records.map((record) => {
+        const feed = feeds.get(record.id)
+        const cached = feed && !feed.loading && feed.source
+        if (!cached) {
+          if (warm > 0) { warm--; readFeed(record.id).catch(() => {}) }
+          return { ...record, running: live.get(record.id) === true, ready: false }
+        }
+        const data = aggregate(feed)
+        const last = feed.items[feed.items.length - 1]
+        return {
+          ...record,
+          running: live.get(record.id) === true,
+          ready: true,
+          calls: data.calls,
+          failures: data.failures,
+          runningCalls: data.running,
+          usd: data.spend.usd,
+          priced: data.spend.priced,
+          requests: data.spend.requests,
+          model: modelOf(feed).name,
+          last: last?.time || record.created,
+        }
+      })
+      const ready = rows.filter((row) => row.ready)
+      const totals = {
+        sessions: rows.length,
+        ready: ready.length,
+        calls: ready.reduce((sum, row) => sum + (row.calls || 0), 0),
+        failures: ready.reduce((sum, row) => sum + (row.failures || 0), 0),
+        usd: ready.reduce((sum, row) => sum + (row.usd || 0), 0),
+        running: rows.filter((row) => row.running).length,
+      }
+      const version = [epoch, rows.map((row) => row.id.slice(0, 8) + ':' + (row.ready ? row.calls : '?')).join(','), totals.usd.toFixed(6)].join('-')
+      if (query.get('version') === version) return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
+      return json({ sessions: rows, totals, version, asOf: PRICING_AS_OF })
+    } catch {
+      return json({ error: 'session_unavailable' }, 503)
+    }
+  }
+
+  // Multi-session canvas: several sessions side by side on one page, each with
+  // its own capabilities and the subagents it dispatched.
+  async function canvasData(request, peer) {
+    if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
+    const query = new URL(request.url, 'http://localhost').searchParams
+    const wanted = (query.get('roots') || '').split(',').map((id) => id.trim()).filter(Boolean).slice(0, MAX_ROOTS)
+    try {
+      const corpus = await ctx.sessionQuery.listSessions()
+      const records = (corpus || []).slice(0, MAX_SESSIONS).map((record) => ({
+        id: record.header?.id || '',
+        parent: record.header?.parentSession || null,
+        created: record.header?.createdAt || 0,
+        live: record.live === true,
+      })).filter((row) => row.id)
+      const store = ctx.get('sessions')
+      if (store && typeof store.list === 'function') {
+        for (const session of store.list()) {
+          live.set(session.header ? session.header.id : String(session.id), true)
+        }
+      }
+      const sessions = records.map((record) => {
+        const cached = cachedStats(record.id)
+        const feed = feeds.get(record.id)
+        if (!cached) readFeed(record.id).catch(() => {})
+        return {
+          ...record,
+          running: live.get(record.id) === true,
+          ready: Boolean(cached),
+          ...(cached || {}),
+          model: feed && !feed.loading && feed.source ? modelOf(feed).name : '',
+        }
+      })
+      const roots = []
+      for (const id of wanted) {
+        if (!records.some((record) => record.id === id)) continue
+        const feed = feeds.get(id)
+        if (!feed || feed.loading || !feed.source) {
+          readFeed(id).catch(() => {})
+          roots.push({ id, ready: false })
+          continue
+        }
+        const map = aggregate(feed)
+        const known = records.find((record) => record.id === id)
+        let agents = []
+        try {
+          const lineage = await lineageFor(id)
+          agents = lineage.rows.slice(1).filter((row) => row.id !== id).map((row) => ({
+            id: row.id,
+            label: row.label || feed.catalog.get(row.id)?.label || '',
+            depth: row.depth,
+            running: live.get(row.id) === true,
+            ...(cachedStats(row.id) || {}),
+          }))
+        } catch { /* an unreachable lineage keeps the session itself on the canvas */ }
+        roots.push({
+          id,
+          ready: true,
+          parent: known?.parent || null,
+          model: modelOf(feed).name,
+          calls: map.calls,
+          failures: map.failures,
+          running: map.running,
+          usd: map.spend.usd,
+          priced: map.spend.priced,
+          agents,
+          nodes: map.nodes.slice(0, 8).map(({ dots, ...node }) => ({ ...node, dots: dots.slice(0, 12) })),
+        })
+      }
+      const version = [epoch, roots.map((root) => root.id.slice(0, 8) + ':' + (root.calls || 0)).join(','), sessions.filter((row) => row.ready).length].join('-')
+      if (query.get('version') === version) return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
+      return json({ roots, sessions, version, asOf: PRICING_AS_OF })
+    } catch {
+      return json({ error: 'session_unavailable' }, 503)
+    }
+  }
+
   function view(kind) {
     return async (request, peer) => {
       if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
@@ -1391,6 +1531,9 @@ export function apply(ctx) {
   for (const [name, resource] of [
     ['map', view('map')],
     ['snapshot', view('timeline')],
+    ['overview', overviewResource],
+    ['canvas-data', canvasData],
+    ['canvas', () => html(canvasHtml())],
     ['view', board],
     ['board-link', issueBoard],
     ['ping', () => json({ ok: true, plugin: 'agent-workflow-viewer' })],

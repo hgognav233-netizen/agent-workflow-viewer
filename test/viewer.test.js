@@ -13,7 +13,7 @@ const result = (seq, callSeq, failed = false) => event(seq, 'tool/result', {
 })
 const record = (id, parentSession) => ({ header: { id, parentSession } })
 
-function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [], connection } = {}) {
+function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [], connection, listSessions } = {}) {
   const routes = new Map()
   const listeners = new Map()
   const emit = (name, payload) => {
@@ -30,6 +30,10 @@ function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessio
     sessionQuery: {
       readSession: read,
       traceSession: async () => ({ target: record(root), descendants: children }),
+      listSessions: listSessions || (async () => [
+        { header: { id: root, createdAt: 1000 }, live: sessions.has(root) },
+        { header: { id: child, parentSession: root, createdAt: 1200 }, live: sessions.has(child) },
+      ]),
     },
   })
   async function get(path, query = {}, { headers, peer } = {}) {
@@ -272,6 +276,88 @@ test('reasoning blocks become thinking entries, are filterable, and are priced f
   assert(Math.abs(map.topSteps[0].usd - expected) < 1e-12)
   // Prompt growth since the previous request is attributed to the capability it came from.
   assert(Math.abs(map.nodes[0].usd - (5000 * 0.15) / 1e6) < 1e-12)
+})
+
+test('the overview lists every recent session with its own numbers', async () => {
+  const events = [
+    event(0, 'request/header', { header: { config: { provider: 'deepseek-account', model: 'deepseek-flash' } } }),
+    call(1, 'read', { path: '/project/plan.md' }),
+    result(2, 1),
+    event(3, 'assistant/message', {
+      message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
+      usage: { inputTokens: 900, outputTokens: 100, cacheReadTokens: 100, cacheWriteTokens: 0, totalTokens: 1100 },
+    }),
+  ]
+  const sessions = new Map([[root, live(events)]])
+  const { get, routes } = setup({ sessions, read: async () => ({ events }) })
+  const overview = async (query = {}) => {
+    const request = new Request('http://localhost/agent-workflow/overview?' + new URLSearchParams(query))
+    const response = await routes.get('/agent-workflow/overview').resource(request)
+    return { status: response.status, body: response.status === 204 ? null : await response.json() }
+  }
+  // Nothing cached yet: the page answers immediately and warms feeds in the background.
+  const cold = await overview()
+  assert.equal(cold.status, 200)
+  assert.equal(cold.body.sessions.length, 2)
+  assert.equal(cold.body.sessions.find((row) => row.id === root).ready, false)
+  assert.equal(routes.get('/agent-workflow/overview').auth, 'required')
+  // After the session feed is loaded, its numbers appear.
+  await get('map')
+  const warm = await overview()
+  const row = warm.body.sessions.find((entry) => entry.id === root)
+  assert.equal(row.ready, true)
+  assert.equal(row.calls, 1)
+  assert(row.usd > 0)
+  assert.equal(warm.body.totals.sessions, 2)
+  assert.equal((await overview({ version: warm.body.version })).status, 204)
+})
+
+test('the application-level canvas serves a page and combines several sessions', async () => {
+  const events = [
+    event(0, 'subagent/catalog', { childId: child, label: 'facade builder' }),
+    call(1, 'read', { path: '/project/a.md' }),
+    result(2, 1),
+  ]
+  const childEvents = [call(0, 'read', { path: '/project/b.md' }), result(1, 0)]
+  const sessions = new Map([[root, live(events)], [child, live(childEvents)]])
+  const { get, routes } = setup({
+    sessions,
+    read: async (id) => ({ events: id === child ? childEvents : events }),
+    children: [{ session: record(child, root) }],
+    listSessions: async () => [
+      { header: { id: root, createdAt: 1000 }, live: true },
+      { header: { id: child, parentSession: root, createdAt: 1200 }, live: true },
+    ],
+  })
+  const page = await routes.get('/agent-workflow/canvas')
+    .resource(new Request('http://localhost/agent-workflow/canvas'))
+  assert.equal(page.status, 200)
+  assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8')
+  const html = await page.text()
+  assert(html.includes('工作流画布'))
+  assert(html.includes('canvas-data'))
+  assert.equal(routes.get('/agent-workflow/canvas-data').auth, 'required')
+  const canvas = async (query) => {
+    const request = new Request('http://localhost/agent-workflow/canvas-data?' + new URLSearchParams(query))
+    const response = await routes.get('/agent-workflow/canvas-data').resource(request)
+    return { status: response.status, body: response.status === 204 ? null : await response.json() }
+  }
+  // Unknown ids are dropped, and the picker still lists every session.
+  const cold = await canvas({ roots: [root, 'unknown'].join(',') })
+  assert.equal(cold.status, 200)
+  assert.equal(cold.body.roots.length, 1)
+  assert.equal(cold.body.roots[0].id, root)
+  assert.equal(cold.body.sessions.length, 2)
+  assert.equal(cold.body.sessions.find((row) => row.id === child).parent, root)
+  await get('map')
+  const warm = await canvas({ roots: [root].join(',') })
+  const drawn = warm.body.roots[0]
+  assert.equal(drawn.ready, true)
+  assert.equal(drawn.calls, 1)
+  assert.equal(drawn.agents.length, 1)
+  assert.equal(drawn.agents[0].label, 'facade builder')
+  assert.equal(drawn.nodes.length > 0, true)
+  assert.equal((await canvas({ roots: root, version: warm.body.version })).status, 204)
 })
 
 test('a subagent keeps the label its parent dispatched it with', async () => {

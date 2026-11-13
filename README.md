@@ -2,7 +2,18 @@
 
 [简体中文](README.zh-CN.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
-See what your Harness agent is doing while it works. Open **◇ Workflow** beside the conversation input to inspect active tool calls, find failures, or switch to a subagent's timeline.
+See what your Harness agent is doing while it works. A **Workflow** icon in the left navigation, below Plugins, opens an application-level canvas of all sessions; **◇ Workflow** beside the conversation input opens the panel for the current conversation.
+
+## Session canvas
+
+The left-hand icon opens a full page that is not bound to the open conversation:
+
+- the left column lists every session; **+** adds one to the canvas, up to six;
+- each session is drawn as its own panel with the capabilities and objects it used;
+- every subagent the session dispatched is a small ball beside its parent's model node — select it for its state, depth, call count and estimated spend, or add its session to the canvas as well;
+- the selection is kept in the browser, so reopening restores it (Harness has no page URL, so a reload returns to the conversation; select the icon again).
+
+The canvas can also be opened directly at `/agent-workflow/canvas` while signed in to Harness.
 
 ![Workflow overview with a capability map and a live activity panel](preview.png)
 

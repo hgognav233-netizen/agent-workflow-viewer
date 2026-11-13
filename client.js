@@ -766,6 +766,41 @@ window.__ModuleLoader__.load({
       }, '◇ ', t('工作流', 'Workflow'))
     }
 
+    // Sidebar icon: the same diamond as the in-conversation launcher.
+    function WorkflowIcon({ size }) {
+      const edge = typeof size === 'number' ? size : 18
+      return h('svg', {
+        width: edge, height: edge, viewBox: '0 0 16 16', 'aria-hidden': true, focusable: 'false',
+        style: { display: 'block' },
+      }, h('path', {
+        d: 'M8 2.4 L13.6 8 L8 13.6 L2.4 8 Z', fill: 'none', stroke: 'currentColor',
+        strokeWidth: 1.5, strokeLinejoin: 'round',
+      }))
+    }
+
+    // Application-level page: several sessions on one canvas, independent of the
+    // open conversation. The canvas itself is the plugin's own page, framed here.
+    function CanvasPage() {
+      return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: 'var(--dsh-frame-top-clearance, 0px)', background: 'var(--dsw-alias-bg-layer-1,#fdfdfb)' } },
+        h('div', { style: {
+          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+          borderBottom: '1px solid var(--dsw-alias-border-l1,#e5e5e0)', fontSize: 12,
+        } },
+          h('b', null, t('工作流画布', 'Workflow canvas')),
+          h('span', { style: { opacity: .6 } }, t('所有会话，可多选', 'All sessions, multi-select')),
+          h('a', {
+            href: '/agent-workflow/canvas', target: '_blank', rel: 'noopener noreferrer',
+            style: { marginLeft: 'auto', color: 'inherit', fontSize: 11, opacity: .7 },
+          }, t('在新标签打开', 'Open in a tab')),
+        ),
+        h('iframe', {
+          title: t('工作流画布', 'Workflow canvas'),
+          src: '/agent-workflow/canvas',
+          style: { flex: 1, width: '100%', border: 0, display: 'block', minHeight: 0 },
+        }),
+      )
+    }
+
     return {
       inject: ['slots'],
       apply(ctx) {
@@ -773,6 +808,11 @@ window.__ModuleLoader__.load({
           ctx.slots.register({ name: 'conversation.input.right', id: 'agent-workflow-viewer', order: 40, label: () => t('工作流', 'Workflow') }, Launcher))
         ctx.slots.inject('shell.overlay', () =>
           ctx.slots.register({ name: 'shell.overlay', id: 'agent-workflow-viewer-overlay', order: 400 }, Overlay))
+        // Application level: an icon in the left panel list plus the page it opens.
+        ctx.slots.inject('sidebar.panellist', () =>
+          ctx.slots.register({ name: 'sidebar.panellist', id: 'agent-workflow', order: 20, label: () => t('工作流', 'Workflow') }, WorkflowIcon))
+        ctx.slots.inject('main', () =>
+          ctx.slots.register({ name: 'main', key: 'agent-workflow' }, CanvasPage))
       },
     }
   },

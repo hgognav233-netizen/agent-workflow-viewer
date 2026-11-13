@@ -1,6 +1,6 @@
 {
   "name": "agent-workflow-viewer",
-  "version": "0.2.0-dev.2",
+  "version": "0.3.0-dev.0",
   "description": "A DeepSeek Harness plugin for inspecting live tool calls, failures, and subagent activity.",
   "type": "module",
   "scripts": { "test": "node --test test/viewer.test.js" },
@@ -15,7 +15,7 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.zh-CN.md", "CHANGELOG.md", "docs/detached-window.md", "preview.png"],
+  "files": ["index.js", "client.js", "canvas.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.zh-CN.md", "CHANGELOG.md", "docs/detached-window.md", "preview.png"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {
