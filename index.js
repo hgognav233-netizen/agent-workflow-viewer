@@ -1,7 +1,13 @@
 /**
  * Fold the Harness session log once, then serve bounded views of that projection.
  */
+import { randomBytes } from 'node:crypto'
+
 export const inject = ['webServer', 'sessionQuery']
+
+const BOARD_TTL = 2 * 60 * 60 * 1000
+const BOARD_LIMIT = 24
+const LOOPBACK = /^(?:localhost|127\.0\.0\.1|\[?::1\]?)$/i
 
 const LOG_WINDOW = 3000
 const TIMELINE_LIMIT = 400
@@ -304,8 +310,8 @@ function timeline(feed, query) {
 }
 
 // Standalone board served to a detached window: same data, no plugin runtime.
-function boardHtml(root) {
-  const safe = JSON.stringify(root).replace(/</g, '\\u003c')
+function boardHtml(root, focus, detached = false) {
+  const safe = JSON.stringify({ root, focus, detached }).replace(/</g, '\\u003c')
   return `<!doctype html>
 <html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>工作流</title>
@@ -325,18 +331,104 @@ h2{font-size:10px;letter-spacing:.1em;color:#777;margin:0 0 7px;text-transform:u
 .row b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
 .row span{margin-left:auto;color:#666;font:11px ui-monospace,monospace;white-space:nowrap}
 .muted{color:#7b7b76;font-size:12px}
+#plot svg{display:block;width:100%;height:auto}
+.live-wire{stroke:#1a7f4b;stroke-dasharray:3 19;animation:flow 1.15s linear infinite}
+.live-ring{transform-box:fill-box;transform-origin:center;animation:ping 1.45s ease-out infinite}
+@keyframes flow{to{stroke-dashoffset:-44}}
+@keyframes ping{from{transform:scale(.8);opacity:.85}to{transform:scale(2);opacity:0}}
 </style></head>
 <body>
 <header><h1>工作流</h1><span class="phase" id="phase"><i></i><em id="phasetext">连接中…</em></span><span class="muted" id="model"></span></header>
 <section><h2>总览</h2><div class="muted" id="totals">…</div></section>
 <section><h2>正在执行</h2><div class="muted" id="active">无</div></section>
+<section><h2>能力图</h2><div id="plot"><span class="muted">…</span></div></section>
 <section><h2>能力</h2><div class="muted" id="caps">…</div></section>
 <script>
-var root = ${safe};
+var config = ${safe};
+var pass = config.detached ? new URLSearchParams(location.hash.slice(1)).get('key') : '';
+var version = '';
 var last = null;
 function byId(id) { return document.getElementById(id) }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
 function fmt(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n) }
+var ZONES = [
+  { id: 'web', label: '云端' },
+  { id: 'process', label: '本机进程' },
+  { id: 'disk', label: '本机磁盘' },
+  { id: 'external', label: '外部程序' },
+];
+var MODEL = { x: 36, y: 244 };
+function curvePath(from, to, bend) {
+  var dx = to.x - from.x;
+  return 'M' + from.x + ' ' + from.y + ' C' + (from.x + dx * .5) + ' ' + (from.y + bend)
+    + ' ' + (to.x - dx * .36) + ' ' + to.y + ' ' + to.x + ' ' + to.y;
+}
+function layoutGraph(nodes) {
+  var TOP = 24, BOTTOM = 462, DOT_X = 424, HEAD = 20, GAP = 7, FLOOR = 5;
+  var lanes = ZONES.map(function (zone) {
+    return { zone: zone, groups: nodes.filter(function (node) { return node.zone === zone.id })
+      .slice(0, 8).sort(function (a, b) { return String(a.id).localeCompare(String(b.id)) }) };
+  });
+  var totalGroups = lanes.reduce(function (sum, lane) { return sum + lane.groups.length }, 0);
+  var usable = BOTTOM - TOP - lanes.length * HEAD - totalGroups * GAP;
+  var all = lanes.reduce(function (sum, lane) {
+    return sum + lane.groups.reduce(function (count, node) { return count + (node.dots || []).length }, 0);
+  }, 0);
+  var perGroup = usable / Math.max(1, all) < FLOOR
+    ? Math.max(1, Math.floor(usable / FLOOR / Math.max(1, totalGroups))) : Infinity;
+  var drawn = lanes.reduce(function (sum, lane) {
+    return sum + lane.groups.reduce(function (count, node) { return count + Math.min(perGroup, (node.dots || []).length) }, 0);
+  }, 0);
+  var pitch = Math.max(FLOOR, Math.min(11, usable / Math.max(1, drawn)));
+  var cursor = TOP;
+  return lanes.map(function (lane, index) {
+    var top = cursor;
+    cursor += HEAD;
+    var inner = cursor;
+    var groups = lane.groups.map(function (node, order) {
+      var shown = (node.dots || []).slice(0, perGroup);
+      var height = Math.max(1, shown.length) * pitch;
+      var hub = { x: 211 + ((order * 61 + index * 37) % 95), y: inner + height / 2 };
+      var dots = shown.slice().sort(function (a, b) { return a.id - b.id }).map(function (dot, order) {
+        return { dot: dot, x: DOT_X, y: inner + (order + .5) * pitch };
+      });
+      inner += height + GAP;
+      return { node: node, hub: hub, dots: dots };
+    });
+    cursor = inner;
+    return { top: top, label: lane.zone.label, count: lane.groups.length, groups: groups };
+  });
+}
+function drawGraph(data) {
+  var nodes = data.nodes || [];
+  var layout = layoutGraph(nodes);
+  var out = [];
+  out.push('<svg viewBox="0 0 680 484" role="img" aria-label="能力图">');
+  [192, 208, 224, 240, 256, 272].forEach(function (x) {
+    out.push('<line x1="' + x + '" x2="' + x + '" y1="18" y2="466" stroke="#d8d8d2" stroke-width=".5" stroke-dasharray="1 4"/>');
+  });
+  layout.forEach(function (zone) {
+    out.push('<line x1="327" x2="655" y1="' + (zone.top + 16) + '" y2="' + (zone.top + 16) + '" stroke="#d8d8d2" stroke-width=".5"/>');
+    out.push('<text x="655" y="' + (zone.top + 12) + '" text-anchor="end" font-size="9" fill="#555">' + esc(zone.label + ' / ' + zone.count) + '</text>');
+    zone.groups.forEach(function (group) {
+      var bend = (group.hub.y - MODEL.y) * .16;
+      out.push('<path d="' + curvePath(MODEL, group.hub, bend) + '" class="' + (group.node.running ? 'live-wire' : '') + '" fill="none" stroke="#181818" stroke-width="' + (group.node.running ? 1.3 : .7) + '" opacity="' + (group.node.running ? .9 : .25) + '"/>');
+      group.dots.forEach(function (entry) {
+        var dot = entry.dot;
+        var radius = Math.min(3.4, 1.9 + Math.log2((dot.hits || 1) + 1) * .55);
+        out.push('<path d="' + curvePath(group.hub, entry, (entry.y - group.hub.y) * .16) + '" class="' + (dot.running ? 'live-wire' : '') + '" fill="none" stroke="#181818" stroke-width=".5" opacity=".18"/>');
+        if (dot.running) out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + (radius + 3) + '" fill="none" stroke="#1a7f4b" class="live-ring"/>');
+        out.push('<circle cx="' + entry.x + '" cy="' + entry.y + '" r="' + radius + '" fill="' + (dot.failed ? '#fdfdfb' : '#171717') + '" stroke="' + (dot.failed ? '#a33c47' : 'none') + '" stroke-width="1"/>');
+      });
+      out.push('<circle cx="' + group.hub.x + '" cy="' + group.hub.y + '" r="' + (3 + Math.min(4, Math.log2((group.node.count || 1) + 1))) + '" fill="#161616"/>');
+      out.push('<text x="' + (group.hub.x + 9) + '" y="' + (group.hub.y - 6) + '" font-size="9.5" fill="#333">' + esc(group.node.label || group.node.id) + '</text>');
+    });
+  });
+  out.push('<circle cx="' + MODEL.x + '" cy="' + MODEL.y + '" r="6" fill="#111"/>');
+  out.push('<text x="' + MODEL.x + '" y="' + (MODEL.y + 20) + '" font-size="11" fill="#222">模型</text>');
+  out.push('</svg>');
+  byId('plot').innerHTML = out.join('');
+}
 function paintPhase() {
   if (!last) return;
   var p = last.phase || { name: 'idle', since: 0, label: '' };
@@ -354,24 +446,41 @@ function paint(data) {
     + (data.working ? ' · 子会话在跑 ' + data.working : '');
   var active = data.active || [];
   byId('active').innerHTML = active.length ? active.map(function (call) {
-    return '<div class="row"><b>' + esc(call.name) + '</b><span>' + esc(String(call.summary || '').slice(0, 44)) + '</span></div>';
+    var detail = config.detached && call.time ? new Date(call.time).toLocaleTimeString() : String(call.summary || '').slice(0, 44);
+    return '<div class="row"><b>' + esc(call.name) + '</b><span>' + esc(detail) + '</span></div>';
   }).join('') : '无';
   var caps = (data.nodes || []).slice(0, 9);
   byId('caps').innerHTML = caps.length ? caps.map(function (node) {
     return '<div class="row"><b>' + esc(node.label || node.kind) + '</b><span>' + node.count + ' 个对象 · ' + node.hits + ' 次'
       + (node.failed ? ' · 失败 ' + node.failed : '') + '</span></div>';
   }).join('') : '…';
+  drawGraph(data);
   paintPhase();
 }
 function poll() {
-  fetch('/agent-workflow/map?root=' + encodeURIComponent(root), { headers: { accept: 'application/json' } })
-    .then(function (response) { if (!response.ok) throw new Error(String(response.status)); return response.json() })
-    .then(function (data) { last = data; paint(data) })
+  if (document.hidden) { setTimeout(poll, 1200); return }
+  var query = config.detached ? { version: version } : { root: config.root, focus: config.focus, version: version };
+  var headers = { accept: 'application/json' };
+  if (pass) headers.authorization = 'Bearer ' + pass;
+  fetch((config.detached ? './board-data' : './map') + '?' + new URLSearchParams(query), { headers: headers })
+    .then(function (response) {
+      if (response.status === 401 && config.detached) {
+        last = null;
+        byId('phase').className = 'phase';
+        byId('phasetext').textContent = '链接已失效，请从 DSH 重新打开';
+        ['model', 'totals', 'active', 'caps'].forEach(function (id) { byId(id).textContent = '' });
+        return false;
+      }
+      if (response.status === 204) return null;
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    })
+    .then(function (data) { if (data) { last = data; version = data.version; paint(data) } return data })
     .catch(function (error) { byId('model').textContent = '读取失败 ' + error.message })
-    .then(function () { setTimeout(poll, 1200) });
+    .then(function (data) { if (data !== false) setTimeout(poll, 1200) });
 }
 poll();
-setInterval(paintPhase, 250);
+setInterval(function () { if (!document.hidden) paintPhase() }, 250);
 </script></body></html>`
 }
 
@@ -380,6 +489,7 @@ export function apply(ctx) {
   // Live running state per session, so a busy subagent is visible from the root view.
   const live = new Map()
   const lineages = new Map()
+  const boardPasses = new Map()
   const epoch = Date.now().toString(36)
   let revision = 0
 
@@ -495,11 +605,10 @@ export function apply(ctx) {
 
   // Older hosts lack route admission. Limit peerless reads to the loopback listener.
   function denied(request, peer) {
-    const loopback = /^(?:localhost|127\.0\.0\.1|\[?::1\]?)$/i
     const authority = request.headers.get('host')
     const host = authority?.replace(/^(\[[^\]]+\]|[^:]+):\d+$/, '$1')
     const crossSite = ['cross-site', 'same-site'].includes(request.headers.get('sec-fetch-site'))
-    return !peer && (!loopback.test(ctx.webServer.host) || (host && !loopback.test(host)) || crossSite)
+    return !peer && (!LOOPBACK.test(ctx.webServer.host) || (host && !LOOPBACK.test(host)) || crossSite)
   }
 
   function view(kind) {
@@ -529,21 +638,99 @@ export function apply(ctx) {
     }
   }
 
+  function html(content) {
+    return new Response(content, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
+        'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'self'",
+      },
+    })
+  }
+
   function board(request, peer) {
     if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
-    const root = new URL(request.url, 'http://localhost').searchParams.get('root')
+    const query = new URL(request.url, 'http://localhost').searchParams
+    const root = query.get('root')
+    const focus = query.get('focus') || root
     if (!root || root.length > 180) return new Response('invalid session', { status: 400 })
-    return new Response(boardHtml(root), {
-      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
-    })
+    return html(boardHtml(root, focus))
+  }
+
+  function boardOrigin(request) {
+    if (!LOOPBACK.test(ctx.webServer.host)) return null
+    const boundOrigin = ctx.webServer.getOrigin?.()
+    if (!boundOrigin) return null
+    const address = new URL(boundOrigin)
+    if (!LOOPBACK.test(address.hostname) || request.headers.get('host') !== address.host) return null
+    return address.origin
+  }
+
+  async function issueBoard(request, peer) {
+    const origin = boardOrigin(request)
+    // On older Harness versions raw webServer resources do not receive a Peer.
+    // Use Connection's own admission check, never the loopback fallback.
+    const admission = peer ?? ctx.get('connection')?.admit?.(request)?.peer
+    if (!origin || !admission || request.headers.get('x-awv-detach') !== '1') return json({ error: 'access_denied' }, 403)
+    const query = new URL(request.url).searchParams
+    const root = query.get('root')
+    const focus = query.get('focus') || root
+    if (!root || root.length > 180 || focus.length > 180) return json({ error: 'invalid_session' }, 400)
+    try {
+      const { rows } = await lineageFor(root)
+      if (!rows.some((row) => row.id === focus)) return json({ error: 'session_not_found' }, 404)
+      const now = Date.now()
+      for (const [key, pass] of boardPasses) if (pass.expires <= now) boardPasses.delete(key)
+      if (boardPasses.size >= BOARD_LIMIT) boardPasses.delete(boardPasses.keys().next().value)
+      const key = randomBytes(32).toString('base64url')
+      boardPasses.set(key, { focus, expires: now + BOARD_TTL })
+      return json({ url: origin + '/agent-workflow/board#key=' + key })
+    } catch {
+      return json({ error: 'session_unavailable' }, 503)
+    }
+  }
+
+  async function boardData(request) {
+    const origin = boardOrigin(request)
+    const source = request.headers.get('origin')
+    const site = request.headers.get('sec-fetch-site')
+    if (!origin || (source && source !== origin) || site === 'cross-site' || site === 'same-site') return json({ error: 'access_denied' }, 403)
+    const key = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') || '')?.[1]
+    const pass = boardPasses.get(key)
+    if (!pass || pass.expires <= Date.now()) {
+      if (pass) boardPasses.delete(key)
+      return json({ error: 'board_expired' }, 401)
+    }
+    try {
+      const feed = await readFeed(pass.focus)
+      const version = epoch + '-' + feed.revision
+      if (new URL(request.url).searchParams.get('version') === version) {
+        return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
+      }
+      const { calls, failures, running, phase, active, nodes } = aggregate(feed)
+      return json({
+        version, calls, failures, running, phase, model: modelOf(feed),
+        active: active.map(({ name, time }) => ({ name, time })),
+        nodes: nodes.slice(0, 9).map(({ label, kind, count, hits, failed }) => ({ label, kind, count, hits, failed })),
+      })
+    } catch {
+      return json({ error: 'session_unavailable' }, 503)
+    }
   }
 
   for (const [name, resource] of [
     ['map', view('map')],
     ['snapshot', view('timeline')],
     ['view', board],
+    ['board-link', issueBoard],
     ['ping', () => json({ ok: true, plugin: 'agent-workflow-viewer' })],
   ]) {
     ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/agent-workflow/' + name, auth: 'required', resource }))
+  }
+  for (const [name, resource] of [
+    ['board', (request) => boardOrigin(request) ? html(boardHtml('', '', true)) : json({ error: 'access_denied' }, 403)],
+    ['board-data', boardData],
+  ]) {
+    ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/agent-workflow/' + name, auth: 'anonymous', resource }))
   }
 }

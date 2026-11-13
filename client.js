@@ -245,7 +245,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function Graph({ nodes, model, phase, root, selection, onSelect, jump }) {
+    function Graph({ nodes, model, phase, root, focus, selection, onSelect, jump }) {
       const svg = useRef(null)
       const plot = useRef(null)
       const drag = useRef(null)
@@ -256,6 +256,9 @@ window.__ModuleLoader__.load({
       const [hover, setHover] = useState(null)
       const [now, setNow] = useState(() => Date.now())
       const [note, setNote] = useState('')
+      const [boardLink, setBoardLink] = useState('')
+      const [opening, setOpening] = useState(false)
+      const desktop = location.protocol === 'dsh-app:'
       const layout = useMemo(() => layoutGraph(nodes), [nodes])
       const busy = Boolean(phase) && phase.name !== 'idle' && Date.now() - phase.since < 15 * 60 * 1000
       useEffect(() => {
@@ -272,10 +275,34 @@ window.__ModuleLoader__.load({
       const selectedDot = nodes.find((node) => node.id === selection?.cap)?.dots.find((dot) => dot.id === selection?.dot)
       const popupDot = selection?.fromGraph ? selectedDot : null
 
-      // Detach with a cascade: a real popup window, then Document Picture-in-Picture, then the URL itself.
       async function detach() {
-        const url = '/agent-workflow/view?root=' + encodeURIComponent(root || '')
+        const query = new URLSearchParams({ root, focus })
         setNote('')
+        setBoardLink('')
+        if (desktop) {
+          setOpening(true)
+          try {
+            const response = await fetch('/agent-workflow/board-link?' + query, {
+              headers: { 'x-awv-detach': '1' }, cache: 'no-store',
+            })
+            if (!response.ok) throw Error(String(response.status))
+            const address = new URL((await response.json()).url)
+            if (!['http:', 'https:'].includes(address.protocol)
+              || !['127.0.0.1', '[::1]', 'localhost'].includes(address.hostname)
+              || address.username || address.password
+              || address.pathname !== '/agent-workflow/board'
+              || !/^#key=[A-Za-z0-9_-]{43}$/.test(address.hash)) throw Error('invalid board address')
+            setBoardLink(address.href)
+            // Desktop forwards HTTP(S) to the system browser and returns null.
+            window.open(address.href, '_blank', 'noopener,noreferrer')
+          } catch {
+            setNote(t('暂时无法打开浏览器看板。更新插件后请完整重启 DSH 再试。', 'Could not open the browser board. Fully restart DSH after updating the plugin and try again.'))
+          } finally {
+            setOpening(false)
+          }
+          return
+        }
+        const url = '/agent-workflow/view?' + query
         let opened = null
         try { opened = window.open(url, 'awv-board', 'popup=yes,width=560,height=840,resizable=yes') } catch { opened = null }
         if (opened) return
@@ -352,12 +379,17 @@ window.__ModuleLoader__.load({
             h('button', { type: 'button', className: 'awv-button', 'aria-label': t('放大', 'Zoom in'), onClick: () => zoom(1.3) }, '+'), ' ',
             h('button', { type: 'button', className: 'awv-button', onClick: () => setView({ scale: 1, x: 0, y: 0 }) }, t('复位', 'Reset')), ' ',
             h('button', {
-              type: 'button', className: 'awv-button', title: t('在新窗口打开，方便分屏', 'Open in a separate window'),
-              onClick: detach,
-            }, t('独立窗口', 'Detach')),
+              type: 'button', className: 'awv-button',
+              title: desktop ? t('在系统浏览器打开实时看板', 'Open live board in the system browser') : t('在新窗口打开，方便分屏', 'Open in a separate window'),
+              onClick: detach, disabled: opening,
+            }, desktop ? t('浏览器看板', 'Browser board') : t('独立窗口', 'Detach')),
           ),
         ),
         note ? h('p', { className: 'awv-note', role: 'status' }, note) : null,
+        boardLink ? h('p', { className: 'awv-note' },
+          t('浏览器没打开？', 'Browser did not open? '),
+          h('a', { href: boardLink, target: '_blank', rel: 'noopener noreferrer' }, t('点击打开看板', 'Open the board')),
+        ) : null,
         h('div', { className: 'awv-plot', ref: plot },
           h('svg', {
             ref: svg, viewBox: '0 0 680 484', className: dragging ? 'is-drag' : '',
@@ -615,7 +647,7 @@ window.__ModuleLoader__.load({
         data?.partial ? h('div', { className: 'awv-note awv-secondary' }, t('显示近期会话活动。', 'Showing recent session activity.')) : null,
         !data ? (!error ? h('p', { className: 'awv-note', role: 'status' }, t('正在读取活动…', 'Loading activity…')) : null)
           : map ? h('div', { className: 'awv-main' },
-            h(Graph, { key: focus, nodes: data.nodes, model: data.model, phase: data.phase, root: data.root, selection, onSelect: select, jump }),
+            h(Graph, { key: focus, nodes: data.nodes, model: data.model, phase: data.phase, root: data.root, focus: data.focus, selection, onSelect: select, jump }),
             h(Inspector, { data, selection, select, jump, failures: () => openTimeline('failed') }),
           ) : h('div', { className: 'awv-timeline' },
             h('div', { className: 'awv-controls' },

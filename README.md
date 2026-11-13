@@ -27,6 +27,8 @@ To try the development version, clone this repository and install the checkout a
 
 The graph groups activity into web tools, local processes, files and skills, and external services. It prioritizes active, failed, and recent objects when space is limited. Counts reflect the latest 3,000 events owned by the selected session. The timeline shows up to 400 matching entries per page. The interface uses Simplified Chinese when the page language is Chinese and English otherwise.
 
+Use **Browser board** in DSH Desktop or **Detach** in DSH Web to open a live summary beside your conversation. [Detached windows and split screen](docs/detached-window.md#english)
+
 ## Data and access
 
 The plugin reads Harness session logs and serves the map and timeline through the Harness web server. It does not modify logs or send them to another service. Activity responses can contain message excerpts, tool results, local paths, or command summaries. Review screenshots and diagnostics before sharing them.

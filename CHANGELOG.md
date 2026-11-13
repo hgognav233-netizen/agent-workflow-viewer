@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- DSH Desktop can open a session-scoped live summary in the system browser for split-screen use.
+
 - Serves a standalone board at `/agent-workflow/view` for a detached window or a second screen.
 - Reports working subagents on the root view and marks running sessions in the session selector.
 - Shows the working phase — thinking, or the tool that is running — with a locally ticking clock and a pulse on the model node, so a model request no longer looks like a stall.

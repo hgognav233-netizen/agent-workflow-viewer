@@ -13,20 +13,20 @@ const result = (seq, callSeq, failed = false) => event(seq, 'tool/result', {
 })
 const record = (id, parentSession) => ({ header: { id, parentSession } })
 
-function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [] } = {}) {
+function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [], connection } = {}) {
   const routes = new Map()
   const listeners = new Map()
   const emit = (name, payload) => {
     for (const listener of listeners.get(name) ?? []) listener(payload)
   }
   apply({
-    get: (name) => name === 'sessions' ? sessions : undefined,
+    get: (name) => ({ sessions, connection })[name],
     effect: (register) => register(),
     on: (name, listener) => {
       listeners.set(name, [...(listeners.get(name) ?? []), listener])
       return () => listeners.set(name, (listeners.get(name) ?? []).filter((entry) => entry !== listener))
     },
-    webServer: { host, register: (route) => routes.set(route.path, route) },
+    webServer: { host, getOrigin: () => 'http://127.0.0.1:34567', register: (route) => routes.set(route.path, route) },
     sessionQuery: {
       readSession: read,
       traceSession: async () => ({ target: record(root), descendants: children }),
@@ -59,6 +59,45 @@ test('parallel cold reads share one result and a transient failure can retry', a
   assert.equal((await map).body.calls, 1)
   assert.equal((await timeline).body.items.length, 1)
   assert.equal(attempts, 2)
+})
+
+test('the browser board requires an authenticated handoff and follows the selected live session only', async () => {
+  const events = [call(0, 'read', { path: '/private/notes.txt' })]
+  const sessions = new Map([[child, live(events)]])
+  const { get, routes } = setup({
+    sessions, children: [{ session: record(child, root) }],
+    connection: { admit: (request) => request.headers.get('cookie') === 'fixture=owner' ? { peer: {} } : { rejection: 401 } },
+  })
+  const host = { host: '127.0.0.1:34567' }
+  const headers = { ...host, 'x-awv-detach': '1' }
+  assert.equal((await get('board-link', { focus: child }, { headers })).status, 403)
+  const owner = { ...headers, cookie: 'fixture=owner' }
+  assert.equal((await get('board-link', { focus: 'unknown' }, { headers: owner })).status, 404)
+  const handoff = await get('board-link', { focus: child }, { headers: owner })
+  assert.equal(handoff.status, 200)
+  const url = new URL(handoff.body.url)
+  assert.equal(url.origin, 'http://127.0.0.1:34567')
+  assert.equal(url.search, '')
+  const page = await routes.get('/agent-workflow/board').resource(new Request(url, { headers: host }))
+  assert.equal(page.status, 200)
+  assert.equal(page.headers.get('referrer-policy'), 'no-referrer')
+  assert(!(await page.text()).includes('private/notes.txt'))
+  assert.equal((await get('board-data', {}, { headers: host })).status, 401)
+  const authorization = 'Bearer ' + new URLSearchParams(url.hash.slice(1)).get('key')
+  const browser = { ...host, authorization, 'sec-fetch-site': 'same-origin' }
+  assert.equal((await get('board-data', {}, { headers: { ...browser, origin: 'https://other.example' } })).status, 403)
+  assert.equal((await get('board-data', {}, { headers: { ...browser, host: 'other.example' } })).status, 403)
+  const initial = await get('board-data', { root: 'other', focus: 'other' }, { headers: browser })
+  assert.equal(initial.body.calls, 1)
+  assert.equal(initial.body.active[0].name, 'read')
+  assert(!JSON.stringify(initial.body).includes('/private/notes.txt'))
+  assert.equal((await get('board-data', { version: initial.body.version }, { headers: browser })).status, 204)
+  events.push(result(1, 0), call(2, 'write', { path: '/private/new.txt' }))
+  const updated = await get('board-data', { version: initial.body.version }, { headers: browser })
+  assert.equal(updated.body.calls, 2)
+  assert.equal(updated.body.active[0].name, 'write')
+  const separateHost = setup()
+  assert.equal((await separateHost.get('board-data', {}, { headers: browser })).status, 401)
 })
 
 test('live-to-disk transition preserves counts and settles incomplete calls', async () => {
