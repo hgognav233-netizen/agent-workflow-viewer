@@ -254,6 +254,7 @@ window.__ModuleLoader__.load({
       const [dragging, setDragging] = useState(false)
       const [hover, setHover] = useState(null)
       const [now, setNow] = useState(() => Date.now())
+      const [note, setNote] = useState('')
       const layout = useMemo(() => layoutGraph(nodes), [nodes])
       const busy = Boolean(phase) && phase.name !== 'idle' && Date.now() - phase.since < 15 * 60 * 1000
       useEffect(() => {
@@ -269,6 +270,31 @@ window.__ModuleLoader__.load({
           + ' · ' + phaseSeconds.toFixed(1) + 's'
       const selectedDot = nodes.find((node) => node.id === selection?.cap)?.dots.find((dot) => dot.id === selection?.dot)
       const popupDot = selection?.fromGraph ? selectedDot : null
+
+      // Detach with a cascade: a real popup window, then Document Picture-in-Picture, then the URL itself.
+      async function detach() {
+        const url = '/agent-workflow/view?root=' + encodeURIComponent(root || '')
+        setNote('')
+        let opened = null
+        try { opened = window.open(url, 'awv-board', 'popup=yes,width=560,height=840,resizable=yes') } catch { opened = null }
+        if (opened) return
+        const pip = window.documentPictureInPicture
+        if (pip && typeof pip.requestWindow === 'function') {
+          try {
+            const win = await pip.requestWindow({ width: 560, height: 840 })
+            win.document.body.style.margin = '0'
+            win.document.body.style.background = '#fdfdfb'
+            const frame = win.document.createElement('iframe')
+            frame.src = url
+            frame.title = t('工作流看板', 'Workflow board')
+            frame.style.cssText = 'border:0;width:100vw;height:100vh;display:block'
+            win.document.body.appendChild(frame)
+            window.addEventListener('pagehide', () => { try { win.close() } catch { /* already closed */ } }, { once: true })
+            return
+          } catch { /* fall through to the visible address */ }
+        }
+        setNote(t('这个窗口不允许弹出新窗口，把下面的地址贴到浏览器标签页里：', 'This window blocks pop-ups. Open this address in a browser tab: ') + url)
+      }
 
       function point(clientX, clientY) {
         const transform = svg.current?.getScreenCTM()
@@ -326,10 +352,11 @@ window.__ModuleLoader__.load({
             h('button', { type: 'button', className: 'awv-button', onClick: () => setView({ scale: 1, x: 0, y: 0 }) }, t('复位', 'Reset')), ' ',
             h('button', {
               type: 'button', className: 'awv-button', title: t('在新窗口打开，方便分屏', 'Open in a separate window'),
-              onClick: () => window.open('/agent-workflow/view?root=' + encodeURIComponent(root || ''), 'awv-board', 'width=560,height=840,noopener'),
+              onClick: detach,
             }, t('独立窗口', 'Detach')),
           ),
         ),
+        note ? h('p', { className: 'awv-note', role: 'status' }, note) : null,
         h('div', { className: 'awv-plot', ref: plot },
           h('svg', {
             ref: svg, viewBox: '0 0 680 484', className: dragging ? 'is-drag' : '',
