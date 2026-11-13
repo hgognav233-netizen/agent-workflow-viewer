@@ -205,3 +205,34 @@ test('a working subagent stays visible from the root view', async () => {
   const idle = await get('map')
   assert.equal(idle.body.working, 0)
 })
+
+test('the standalone board carries the panel views, colour schemes, and interaction hooks', async () => {
+  const { routes } = setup()
+  const host = { host: '127.0.0.1:34567' }
+  const page = await routes.get('/agent-workflow/view')
+    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))
+  assert.equal(page.status, 200)
+  assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8')
+  const html = await page.text()
+  // Same two views as the conversation panel, plus the session selector.
+  assert(html.includes('时间线'))
+  assert(html.includes('正在执行'))
+  assert(html.includes('#sessions'))
+  // Manual colour schemes on top of the system preference.
+  assert(html.includes('跟随系统'))
+  assert(html.includes('prefers-color-scheme:dark'))
+  assert(html.includes('awv-board-theme'))
+  // Interaction hooks: zoom, pan, object detail.
+  assert(html.includes('wheel'))
+  assert(html.includes('pointermove'))
+  assert(html.includes('data-cap'))
+  // Both payloads are reachable from the same page.
+  assert(html.includes('snapshot'))
+  assert(html.includes('board-data'))
+  assert(!html.includes('unsafe-eval'))
+  const board = await routes.get('/agent-workflow/board')
+    .resource(new Request('http://127.0.0.1:34567/agent-workflow/board', { headers: host }))
+  assert.equal(board.status, 200)
+  assert.equal(board.headers.get('referrer-policy'), 'no-referrer')
+  assert((await board.text()).includes('view-only'))
+})

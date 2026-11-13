@@ -27,7 +27,7 @@ To try the development version, clone this repository and install the checkout a
 
 The graph groups activity into web tools, local processes, files and skills, and external services. It prioritizes active, failed, and recent objects when space is limited. Counts reflect the latest 3,000 events owned by the selected session. The timeline shows up to 400 matching entries per page. The interface uses Simplified Chinese when the page language is Chinese and English otherwise.
 
-Use **Browser board** in DSH Desktop or **Detach** in DSH Web to open a live summary beside your conversation. [Detached windows and split screen](docs/detached-window.md#english)
+Use **Browser board** in DSH Desktop or **Detach** in DSH Web to open the viewer beside your conversation. The board opened from DSH Web is the same page as the panel — overview, timeline with filtering and paging, session selector, object detail cards, and zoom/pan — and adds a colour-scheme button (follow system, light, dark). The DSH Desktop browser board keeps its reduced summary. [Detached windows and split screen](docs/detached-window.md#english)
 
 ## Data and access
 

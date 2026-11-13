@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The board opened from DSH Web now mirrors the conversation panel: overview, timeline with failure filtering and paging, session selector, object detail cards, and zoom/pan. The DSH Desktop browser board keeps its reduced summary.
+- The board has a colour-scheme button — follow the system, force light, or force dark — remembered per browser.
+- Selecting an object in the board and opening it in the timeline scrolls to that row and highlights it.
+
 - DSH Desktop can open a session-scoped live summary in the system browser for split-screen use.
 
 - Serves a standalone board at `/agent-workflow/view` for a detached window or a second screen.

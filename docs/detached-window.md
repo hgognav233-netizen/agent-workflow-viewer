@@ -24,7 +24,7 @@
 
 ### 浏览器看板的访问范围
 
-看板连接正在运行的 Desktop Host，显示工作阶段、工具名和汇总计数。链接仅限本机和所选会话，两小时后或 Host 退出后失效。浏览器看板使用独立授权，页面不提供日志正文、工具参数或完整时间线。若第二个窗口也必须属于 DSH Desktop，则需要桌面壳的窗口接口。 [DSH 窗口贡献提案 #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
+看板连接正在运行的 Desktop Host，显示工作阶段、工具名和汇总计数。链接仅限本机和所选会话，两小时后或 Host 退出后失效。浏览器看板使用独立授权，页面不提供日志正文、工具参数或完整时间线。从 DSH Web 打开的看板页（`/agent-workflow/view`）走的是同源登录态，与对话面板读取同一份数据，因此内容完整——上面这段的精简范围只适用于 Desktop 的浏览器看板。若第二个窗口也必须属于 DSH Desktop，则需要桌面壳的窗口接口。 [DSH 窗口贡献提案 #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
 
 ## English
 
@@ -48,4 +48,4 @@ When debugging clicks inside the panel, check that it mounts in `shell.overlay` 
 
 ### Browser board access
 
-The browser board connects to the running Desktop Host and displays its working phase, tool names, and counts. The link is local and scoped to the selected session. It expires after two hours or when the Host exits. It uses separate authorization and omits message text, tool arguments, and the full timeline. A second native DSH window requires a desktop shell API. [DSH window contribution proposal #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
+The browser board connects to the running Desktop Host and displays its working phase, tool names, and counts. The link is local and scoped to the selected session. It expires after two hours or when the Host exits. It uses separate authorization and omits message text, tool arguments, and the full timeline. The board page opened from DSH Web (`/agent-workflow/view`) uses the same authenticated data as the conversation panel, so it shows everything; the reduced scope above applies only to the DSH Desktop browser board. A second native DSH window requires a desktop shell API. [DSH window contribution proposal #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
