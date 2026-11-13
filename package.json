@@ -1,8 +1,9 @@
 {
   "name": "agent-workflow-viewer",
-  "version": "0.1.0",
-  "description": "Live map of the model at work: what it calls, what comes back, and which subagent it dispatches.",
+  "version": "0.2.0-dev.0",
+  "description": "A DeepSeek Harness plugin for inspecting live tool calls, failures, and subagent activity.",
   "type": "module",
+  "scripts": { "test": "node --test test/viewer.test.js" },
   "license": "MIT",
   "author": "hgognav233-netizen",
   "keywords": ["dsh-plugin", "visualization", "workflow", "subagent", "observability"],
@@ -14,7 +15,7 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.zh-CN.md", "CHANGELOG.md", "preview.png"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {
