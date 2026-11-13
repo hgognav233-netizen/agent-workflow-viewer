@@ -91,6 +91,7 @@ function createFeed() {
     next: 0, start: 0, inherited: 0, items: [], calls: new Map(), pending: new Set(),
     source: null, loading: null, revision: 0, map: null,
     modelEvents: [],
+    phase: { name: 'idle', since: 0, label: '' },
   }
 }
 
@@ -114,12 +115,15 @@ function fold(feed, event) {
       }
       const text = clip(textOf(user ? data.content : data.message?.content), 1200)
       if (text) add({ kind: user ? 'user' : 'reply', text })
+      feed.phase = { name: 'thinking', since: time, label: '' }
       break
     }
     case 'request/header':
     case 'request/context': {
       const config = type === 'request/header' ? data.header?.config : data
       if (config?.provider || config?.model) feed.modelEvents.push({ seq, provider: config.provider, name: config.model })
+      // A model request is open from here until its assistant message settles.
+      feed.phase = { name: 'thinking', since: time, label: '' }
       break
     }
     case 'tool/call': {
@@ -131,6 +135,7 @@ function fold(feed, event) {
       feed.items.push(item)
       if (item.id) feed.calls.set(item.id, item)
       feed.pending.add(item)
+      feed.phase = { name: 'calling', since: time, label: name }
       break
     }
     case 'tool/result': {
@@ -144,14 +149,17 @@ function fold(feed, event) {
       } else {
         add({ kind: 'result', name: message.name || '', result })
       }
+      feed.phase = { name: 'thinking', since: time, label: '' }
       break
     }
     case 'turn/start':
       add({ kind: 'turn', phase: 'start', turn: data.turn })
+      feed.phase = { name: 'thinking', since: time, label: '' }
       break
     case 'turn/end':
       settle(feed, 'interrupted', time, data.turn)
       add({ kind: 'turn', phase: 'end', turn: data.turn, reason: data.reason?.kind })
+      feed.phase = { name: 'idle', since: time, label: '' }
       break
   }
 }
@@ -252,6 +260,7 @@ function aggregate(feed) {
   const ids = new Set(visible.slice(0, GRAPH_DOT_LIMIT).map((dot) => dot.id))
   feed.map = {
     calls, failures, interrupted, active: active.reverse().slice(0, 12), running: active.length,
+    phase: feed.phase,
     nodes: nodes.map((node) => ({ ...node, dots: node.dots.filter((dot) => ids.has(dot.id)) })),
   }
   return feed.map
@@ -292,6 +301,77 @@ function timeline(feed, query) {
       newer: end < filtered.length ? filtered[end - 1]?.seq ?? null : null,
     }
   }
+}
+
+// Standalone board served to a detached window: same data, no plugin runtime.
+function boardHtml(root) {
+  const safe = JSON.stringify(root).replace(/</g, '\\u003c')
+  return `<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工作流</title>
+<style>
+:root{color-scheme:light dark}
+body{margin:0;font:13px/1.55 ui-sans-serif,system-ui,"Segoe UI",sans-serif;background:#fdfdfb;color:#171717}
+@media (prefers-color-scheme:dark){body{background:#151517;color:#eceae4}header,section{border-color:#2b2b2f}}
+header{padding:12px 14px;border-bottom:1px solid #e5e5e0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h1{font-size:15px;margin:0;letter-spacing:-.02em}
+.phase{font:11px ui-monospace,monospace;display:inline-flex;gap:6px;align-items:center;color:#666}
+.phase i{width:7px;height:7px;border-radius:50%;background:#9a9a92;display:inline-block}
+.phase.busy i{background:#1a7f4b;animation:beat 1.4s ease-out infinite}
+@keyframes beat{0%{box-shadow:0 0 0 0 rgba(26,127,75,.55)}100%{box-shadow:0 0 0 9px rgba(26,127,75,0)}}
+section{padding:11px 14px;border-bottom:1px solid #eeeeea}
+h2{font-size:10px;letter-spacing:.1em;color:#777;margin:0 0 7px;text-transform:uppercase;font-weight:600}
+.row{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.row b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
+.row span{margin-left:auto;color:#666;font:11px ui-monospace,monospace;white-space:nowrap}
+.muted{color:#7b7b76;font-size:12px}
+</style></head>
+<body>
+<header><h1>工作流</h1><span class="phase" id="phase"><i></i><em id="phasetext">连接中…</em></span><span class="muted" id="model"></span></header>
+<section><h2>总览</h2><div class="muted" id="totals">…</div></section>
+<section><h2>正在执行</h2><div class="muted" id="active">无</div></section>
+<section><h2>能力</h2><div class="muted" id="caps">…</div></section>
+<script>
+var root = ${safe};
+var last = null;
+function byId(id) { return document.getElementById(id) }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+function fmt(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n) }
+function paintPhase() {
+  if (!last) return;
+  var p = last.phase || { name: 'idle', since: 0, label: '' };
+  var busy = p.name !== 'idle';
+  var secs = busy ? Math.max(0, (Date.now() - p.since) / 1000) : 0;
+  byId('phase').className = 'phase' + (busy ? ' busy' : '');
+  byId('phasetext').textContent = !busy ? '空闲'
+    : (p.name === 'calling' ? '执行中 ' + (p.label || '') : '思考中') + ' · ' + secs.toFixed(1) + 's';
+}
+function paint(data) {
+  var model = data.model || {};
+  byId('model').textContent = (model.name || '') + (model.requests ? ' · ' + model.requests + ' 次响应' : '');
+  byId('totals').textContent = '调用 ' + fmt(data.calls) + ' · 失败 ' + fmt(data.failures) + ' · 运行中 ' + fmt(data.running)
+    + ' · tokens ' + fmt(model.input) + ' / ' + fmt(model.output);
+  var active = data.active || [];
+  byId('active').innerHTML = active.length ? active.map(function (call) {
+    return '<div class="row"><b>' + esc(call.name) + '</b><span>' + esc(String(call.summary || '').slice(0, 44)) + '</span></div>';
+  }).join('') : '无';
+  var caps = (data.nodes || []).slice(0, 9);
+  byId('caps').innerHTML = caps.length ? caps.map(function (node) {
+    return '<div class="row"><b>' + esc(node.label || node.kind) + '</b><span>' + node.count + ' 个对象 · ' + node.hits + ' 次'
+      + (node.failed ? ' · 失败 ' + node.failed : '') + '</span></div>';
+  }).join('') : '…';
+  paintPhase();
+}
+function poll() {
+  fetch('/agent-workflow/map?root=' + encodeURIComponent(root), { headers: { accept: 'application/json' } })
+    .then(function (response) { if (!response.ok) throw new Error(String(response.status)); return response.json() })
+    .then(function (data) { last = data; paint(data) })
+    .catch(function (error) { byId('model').textContent = '读取失败 ' + error.message })
+    .then(function () { setTimeout(poll, 1200) });
+}
+poll();
+setInterval(paintPhase, 250);
+</script></body></html>`
 }
 
 export function apply(ctx) {
@@ -402,16 +482,18 @@ export function apply(ctx) {
     })
   }
 
+  // Older hosts lack route admission. Limit peerless reads to the loopback listener.
+  function denied(request, peer) {
+    const loopback = /^(?:localhost|127\.0\.0\.1|\[?::1\]?)$/i
+    const authority = request.headers.get('host')
+    const host = authority?.replace(/^(\[[^\]]+\]|[^:]+):\d+$/, '$1')
+    const crossSite = ['cross-site', 'same-site'].includes(request.headers.get('sec-fetch-site'))
+    return !peer && (!loopback.test(ctx.webServer.host) || (host && !loopback.test(host)) || crossSite)
+  }
+
   function view(kind) {
     return async (request, peer) => {
-      // Older hosts lack route admission. Limit peerless reads to the loopback listener.
-      const loopback = /^(?:localhost|127\.0\.0\.1|\[?::1\]?)$/i
-      const authority = request.headers.get('host')
-      const host = authority?.replace(/^(\[[^\]]+\]|[^:]+):\d+$/, '$1')
-      const crossSite = ['cross-site', 'same-site'].includes(request.headers.get('sec-fetch-site'))
-      if (!peer && (!loopback.test(ctx.webServer.host) || (host && !loopback.test(host)) || crossSite)) {
-        return json({ error: 'access_denied' }, 403)
-      }
+      if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
       const query = new URL(request.url, 'http://localhost').searchParams
       const root = query.get('root')
       const focus = query.get('focus') || root
@@ -434,9 +516,19 @@ export function apply(ctx) {
     }
   }
 
+  function board(request, peer) {
+    if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
+    const root = new URL(request.url, 'http://localhost').searchParams.get('root')
+    if (!root || root.length > 180) return new Response('invalid session', { status: 400 })
+    return new Response(boardHtml(root), {
+      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+    })
+  }
+
   for (const [name, resource] of [
     ['map', view('map')],
     ['snapshot', view('timeline')],
+    ['view', board],
     ['ping', () => json({ ok: true, plugin: 'agent-workflow-viewer' })],
   ]) {
     ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/agent-workflow/' + name, auth: 'required', resource }))
