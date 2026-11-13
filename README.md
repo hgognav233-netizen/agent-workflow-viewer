@@ -20,7 +20,7 @@ To try the development version, clone this repository and install the checkout a
 
 ## Use the viewer
 
-- **Overview** shows tool calls, failures, active calls, and token usage. Select a capability or object to see how it was used. Repeated access to the same object appears as one dot.
+- **Overview** shows tool calls, failures, active calls, and token usage. Follow the moving paths to see which tools are running. Select a dot to open its detail card next to it. Repeated access to the same object appears as one dot.
 - **Running now** lists simultaneous calls. Select a call to open its event in the timeline.
 - **Timeline** shows message excerpts, call status, duration, and result excerpts. Filter for failures, or page through retained activity.
 - **Session selector** opens a subagent's own activity when Harness reports it as a descendant of the current conversation.
