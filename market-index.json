@@ -28,6 +28,15 @@
       },
       "versions": [
         {
+          "version": "0.2.0-dev.0",
+          "publishTimestamp": 1794571131,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/hgognav233-netizen/agent-workflow-viewer",
+            "commit": "69af36e31fb44a6c31fe781e91bed8570ac181c0"
+          }
+        },
+        {
           "version": "0.1.0",
           "publishTimestamp": 1794506551,
           "source": {
