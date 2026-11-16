@@ -8,24 +8,32 @@ See what your Harness agent is doing while it works. A **Workflow** icon in the 
 
 The left-hand icon opens a full page that is not bound to the open conversation:
 
-- the left column lists every session; **+** adds one to the canvas, up to six;
-- each session is drawn as its own panel with the capabilities and objects it used;
-- every subagent the session dispatched is a small ball beside its parent's model node — select it for its state, depth, call count and estimated spend, or add its session to the canvas as well;
-- the selection is kept in the browser, so reopening restores it (Harness has no page URL, so a reload returns to the conversation; select the icon again).
+- Search by session, project, or model. Filter the picker to running or selected sessions.
+- Drag or select a session to see its model, capabilities, and objects directly on the shared canvas. Drag the session label to move its graph, drag the background to pan, and scroll to zoom around the pointer. **Fit canvas** brings every selected graph into view.
+- Thick lines mark active paths, dashed lines and diamonds mark failures, and thin gray lines show past calls. Switch between overview, active calls, failures, and estimated spend.
+- Child tasks appear automatically around their parent session. Select a child label to expand its workflow on the same canvas.
+- Select a capability or object for its tools, duration, and failure evidence. The spend view links expensive model requests to their token breakdown and timeline.
+- The browser remembers the selection and moved node positions. After reloading Harness, use the sidebar icon to reopen the canvas.
 
-The canvas can also be opened directly at `/agent-workflow/canvas` while signed in to Harness.
+Open `/agent-workflow/canvas` directly while signed in to DSH Web. In DSH Desktop, choose **Open in browser** to carry your current selection over and add other recent sessions from the browser sidebar. Switch estimated spend between USD and CNY in the canvas toolbar. The CNY view shows the reference rate and its date. View logs, object paths, and error text inside Harness.
 
 ![Workflow overview with a capability map and a live activity panel](preview.png)
 
 ## Install
 
-Open the **Plugins** page in DeepSeek Harness and install the published `0.1.0` bundle using this source:
+Install version `0.3.0` from GitHub in the DSH Web profile:
 
-```text
-git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git#677a39b6f1f0742c2fbc20b5ef45e63a0e196ffd
+```sh
+dsh plugin --profile web add github:hgognav233-netizen/agent-workflow-viewer#v0.3.0
 ```
 
-Enable the bundle, then reload Harness and open a conversation. The published bundle shows the original Chinese interface and launcher. The screenshot and walkthrough below describe the development version of the plugin.
+In DSH Desktop, open **Plugins** and paste the Git source:
+
+```text
+git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git#v0.3.0
+```
+
+Enable the bundle, restart the Harness host, and choose **Workflow** in the sidebar.
 
 To try the development version, clone this repository and install the checkout as a local bundle. Pass the absolute checkout path to the Plugins page or the plugin manager's `install_bundle` action. Restart the Harness host after changing `index.js` and reload the interface after changing `client.js`.
 

@@ -104,6 +104,53 @@ test('the browser board requires an authenticated handoff and follows the select
   assert.equal((await separateHost.get('board-data', {}, { headers: browser })).status, 401)
 })
 
+test('browser canvas handoff lists session titles and can select another session', async () => {
+  const records = [record(root), record(child, root), record('another'), record('other-child', 'another')]
+  const events = [
+    event(0, 'session/title', { title: '设计复核' }),
+    call(1, 'read', { path: '/private/project-plan.txt' }),
+    result(2, 1, true),
+  ]
+  const sessions = new Map([[root, live(events)], [child, live([])],
+    ['another', live([event(0, 'user/message', { content: 'private prompt fallback' })])]])
+  const { get, routes } = setup({ sessions, listSessions: async () => records })
+  const host = { host: '127.0.0.1:34567' }
+  const headers = { ...host, 'x-awv-detach': '1' }
+  const query = { view: 'canvas', roots: root }
+  assert.equal((await get('board-link', query, { headers })).status, 403)
+  const handoff = await get('board-link', query, { headers, peer: {} })
+  const url = new URL(handoff.body.url)
+  assert.equal(url.pathname, '/agent-workflow/canvas-board')
+  const page = await routes.get(url.pathname).resource(new Request(url, { headers: host }))
+  assert.equal(page.status, 200)
+  const key = new URLSearchParams(url.hash.slice(1)).get('key')
+  assert.equal((await get('canvas-board-data', {}, { headers: host })).status, 401)
+  const browser = { ...host, authorization: 'Bearer ' + key, 'sec-fetch-site': 'same-origin' }
+  assert.equal((await get('board-data', {}, { headers: browser })).status, 401)
+  const details = { roots: root, inspect: root }
+  const response = await get('canvas-board-data', details, { headers: browser })
+  assert.equal(response.status, 200)
+  assert.deepEqual(response.body.roots.map((entry) => entry.id), [root, child])
+  assert.deepEqual(response.body.sessions.map((entry) => entry.id), [root, child, 'another'])
+  assert.equal(response.body.sessions[0].label, '设计复核')
+  assert.equal(response.body.roots[0].failures, 1)
+  assert.doesNotMatch(JSON.stringify(response.body), /private|could not read/)
+  const changed = await get('canvas-board-data', { roots: root + ',another' }, { headers: browser })
+  assert.deepEqual(changed.body.roots.map((entry) => entry.id), [root, 'another', child, 'other-child'])
+  assert.equal((await get('canvas-board-data', { ...details, version: response.body.version }, { headers: browser })).status, 204)
+  records.unshift(record('new-session'), record('new-child', 'new-session'))
+  const refreshed = await get('canvas-board-data', { ...details, version: response.body.version }, { headers: browser })
+  assert.equal(refreshed.status, 200)
+  assert.deepEqual(refreshed.body.roots.map((entry) => entry.id), [root, child])
+  assert(refreshed.body.sessions.some((entry) => entry.id === 'new-session'))
+  assert(!refreshed.body.sessions.some((entry) => entry.id === 'new-child'))
+  const childOnly = await get('canvas-board-data', { roots: 'new-child' }, { headers: browser })
+  assert.deepEqual(childOnly.body.roots, [])
+  const added = await get('canvas-board-data', { roots: root + ',new-session,new-child' }, { headers: browser })
+  assert.deepEqual(added.body.roots.map((entry) => entry.id), [root, 'new-session', child, 'new-child'])
+  assert.equal((await get('board-link', { view: 'canvas' }, { headers, peer: {} })).status, 200)
+})
+
 test('live-to-disk transition preserves counts and settles incomplete calls', async () => {
   const events = [call(0, 'read', { path: '/project/plan.md' })]
   const sessions = new Map([[root, live(events)]])
@@ -117,6 +164,29 @@ test('live-to-disk transition preserves counts and settles incomplete calls', as
   assert.equal(second.running, 0)
   assert.equal(second.interrupted, 1)
   assert.equal((await get('snapshot')).body.items[0].result.status, 'interrupted')
+})
+
+test('canvas keeps the last complete graph and title during a delayed disk handover', async () => {
+  const events = [
+    event(0, 'session/title', { title: '稳定标题' }),
+    call(1, 'read', { path: '/project/plan.md' }),
+  ]
+  const sessions = new Map([[root, live(events)]])
+  let finishRead
+  const pending = new Promise((resolve) => { finishRead = resolve })
+  const { get } = setup({ sessions, read: (id) => id === root ? pending : Promise.resolve({ events: [] }) })
+  const query = { roots: root, compact: '1', graphs: '1' }
+  const liveCanvas = (await get('canvas-data', query)).body
+  sessions.delete(root)
+  const loading = (await get('canvas-data', query)).body
+  assert.equal(loading.roots[0].ready, true)
+  assert.equal(loading.sessions[0].label, '稳定标题')
+  assert.deepEqual(loading.roots[0].nodes, liveCanvas.roots[0].nodes)
+  finishRead({ events: events.concat(result(2, 1)), inheritedEventCount: 1 })
+  await get('map')
+  const disk = (await get('canvas-data', query)).body
+  assert.equal(disk.roots[0].running, 0)
+  assert.equal(disk.sessions[0].label, '稳定标题')
 })
 
 test('target identity survives long arguments and respects Windows and POSIX path semantics', async () => {
@@ -367,6 +437,96 @@ test('a subagent keeps the label its parent dispatched it with', async () => {
   assert.equal(map.catalog.find((entry) => entry.id === child).label, 'facade builder')
   assert.equal(map.sessions.find((session) => session.id === child).label, 'facade builder')
   assert.equal(map.sessions.find((session) => session.id === root).depth, 0)
+})
+
+test('canvas summaries refresh on settlement and only expand the inspected session', async () => {
+  const events = [
+    event(0, 'session/title', { title: '模型整理' }),
+    call(1, 'read', { path: '/project/plan.md' }),
+  ]
+  const sessions = new Map([[root, live(events)]])
+  const { get, routes } = setup({ sessions, children: [{ session: record(child, root) }] })
+  const query = { roots: root, compact: '1' }
+  const started = (await get('canvas-data', query)).body
+  assert.equal(started.sessions.find((row) => row.id === root).label, '模型整理')
+  assert.equal(started.roots[0].running, 1)
+  assert.equal(started.roots[0].nodes, undefined)
+  assert.equal(started.roots[0].agents, undefined)
+
+  events.push(result(2, 1, true), event(3, 'turn/end', { turn: 1 }))
+  const finished = await get('canvas-data', { ...query, version: started.version })
+  assert.equal(finished.status, 200)
+  assert.equal(finished.body.roots[0].calls, started.roots[0].calls)
+  assert.equal(finished.body.roots[0].running, 0)
+  assert.equal(finished.body.roots[0].failures, 1)
+  assert.equal((await get('canvas-data', { ...query, version: finished.body.version })).status, 204)
+
+  const inspected = (await get('canvas-data', { ...query, inspect: root })).body.roots[0]
+  assert.equal(inspected.nodes[0].dots[0].failureSeq, 1)
+  assert.equal(inspected.agents[0].id, child)
+
+  const board = routes.get('/agent-workflow/view')
+  const page = await board.resource(new Request('http://localhost/agent-workflow/view?root=root&filter=failed&at=0'))
+  assert.match(await page.text(), /"filter":"failed","at":0/)
+})
+
+test('canvas keeps older selections addressable beyond the initial picker window', async () => {
+  const records = Array.from({ length: 42 }, (_, index) => ({
+    header: { id: 'session-' + index, createdAt: 1000 - index },
+  }))
+  const { get } = setup({ listSessions: async () => records })
+  const ids = records.slice(-8).map(({ header }) => header.id)
+  const response = (await get('canvas-data', { compact: '1', roots: ids.join(',') })).body
+  assert.deepEqual(response.roots.map((row) => row.id), ids)
+  assert.equal(response.sessions.length, 40)
+  assert(response.sessions.some((row) => row.id === 'session-41'))
+})
+
+test('shared canvas carries working paths, failure evidence and cost anchors', async () => {
+  const events = [
+    event(0, 'request/header', { header: { config: { model: 'deepseek-flash' } } }),
+    event(1, 'assistant/message', {
+      message: { role: 'assistant', content: [] },
+      usage: { inputTokens: 3000, cacheReadTokens: 1000, outputTokens: 20 },
+    }),
+    call(2, 'read', { path: '/project/fail.md' }),
+    result(3, 2, true),
+    call(4, 'read', { path: '/project/live.md' }),
+    call(5, 'web_search', { query: 'plans' }),
+  ]
+  const sessions = new Map([[root, live(events)], [child, live([call(0, 'read', { path: '/project/child.md' })])]])
+  const { get } = setup({ sessions })
+  const query = { compact: '1', graphs: '1', roots: [root, child].join(',') }
+  const overview = (await get('canvas-data', query)).body.roots
+  assert.equal(overview.length, 2)
+  assert(overview.every((entry) => entry.nodes.length > 0))
+  assert.equal(overview[0].active[0].seq, 5)
+  assert.equal(overview[0].topSteps[0].seq, 1)
+  assert.equal(overview[0].topSteps[0].priced, true)
+  assert.equal(overview[0].evidence, undefined)
+  const fault = (await get('canvas-data', { ...query, mode: 'failed', inspect: root })).body.roots[0]
+  assert.equal(fault.nodes.length, 1)
+  assert.equal(fault.nodes[0].dots[0].failureSeq, 2)
+  assert.equal(fault.evidence[2], 'could not read')
+  assert.equal(fault.nodes[0].dots[1].activeSeq, 4)
+  const costRecord = (await get('snapshot', { at: 1 })).body
+  assert(costRecord.items.some((item) => item.seq === 1 && item.kind === 'reply'))
+})
+
+test('selecting a session includes its live descendants and excludes ordinary forks', async () => {
+  const row = (id, parentSession, origin) => ({ header: { id, parentSession, origin } })
+  const records = [row(root), row(child, root, 'subagent'), row('nested', child, 'subagent'),
+    row('other'), row('old-fork', root, 'fork')]
+  const { get } = setup({ listSessions: async () => records })
+  const query = { compact: '1', graphs: '1', family: '1', roots: root }
+  const first = (await get('canvas-data', query)).body
+  assert.deepEqual(first.roots.map((entry) => entry.id), [root, child, 'nested'])
+  assert.equal(first.sessions.find((entry) => entry.id === 'old-fork').parent, null)
+  records.unshift(row('new-task', root, 'subagent'))
+  const update = await get('canvas-data', { ...query, version: first.version })
+  assert.equal(update.status, 200)
+  assert(update.body.roots.some((entry) => entry.id === 'new-task'))
+  assert.deepEqual((await get('canvas-data', { ...query, roots: 'other' })).body.roots.map((entry) => entry.id), ['other'])
 })
 
 test('an unpriced model reports spend as unknown instead of a number', async () => {

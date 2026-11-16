@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Adds an application-level page: a workflow icon in the left panel list, after Plugins, opens a canvas that is not bound to the open conversation.
-- The canvas holds up to six sessions side by side, each with its own capability map. Every subagent appears as a small ball beside its parent's model node; selecting one shows its state, depth, call count and estimated spend, and can add that subagent's session to the canvas too.
+- Drag sessions onto a shared canvas to inspect their live monochrome capability maps. Filter to active or failed paths, inspect tool evidence, or open the estimated spend view to inspect expensive model requests.
+- Selected sessions automatically bring their delegated tasks into the canvas as expandable branches.
 - Adds `/agent-workflow/canvas` and `/agent-workflow/canvas-data`, both behind Harness admission. The canvas keeps its selection in the browser, so reopening restores it.
+- Opens the selected workflows in the system browser on DSH Desktop. The session picker discovers new sessions live, live updates preserve the visible graph and labels, and estimated costs can be displayed in USD or CNY.
 
 - Reasoning blocks from the model log become their own timeline entries, with a Thinking filter. The conversation panel and the board both show them.
 - Estimated spend: a total, the most expensive steps, and a per-capability attribution from prompt growth. Prices are the public DeepSeek list with peak and off-peak rates; models without a known price report no number instead of a guess.

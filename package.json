@@ -1,7 +1,7 @@
 {
   "name": "agent-workflow-viewer",
-  "version": "0.3.0-dev.0",
-  "description": "A DeepSeek Harness plugin for inspecting live tool calls, failures, and subagent activity.",
+  "version": "0.3.0",
+  "description": "A live workflow canvas for DeepSeek Harness sessions, subagents, tool failures, and estimated spend.",
   "type": "module",
   "scripts": { "test": "node --test test/viewer.test.js" },
   "license": "MIT",

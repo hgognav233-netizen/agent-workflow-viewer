@@ -1,7 +1,7 @@
 /**
  * Fold the Harness session log once, then serve bounded views of that projection.
  */
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { canvasHtml } from './canvas.js'
 
 export const inject = ['webServer', 'sessionQuery']
@@ -20,6 +20,11 @@ const FILE_TOOLS = new Set(['read', 'write', 'edit', 'read_image', 'glob', 'grep
 const SHELL_TOOLS = new Set(['pwsh', 'bash', 'shell', 'exec_command'])
 const AGENT_TOOLS = new Set(['subagent', 'spawn_teammate', 'workflow', 'send_message', 'interrupt_agent', 'list_agents', 'wait_agent', 'team_task_create', 'team_task_update'])
 const zones = { web: 'web', file: 'disk', skill: 'disk', mcp: 'external' }
+
+function sessionParent(record) {
+  const { parentSession, origin } = record.header
+  return !origin || origin === 'subagent' ? parentSession || null : null
+}
 
 // Session logs carry token buckets but no spend. Prices come from the public
 // DeepSeek API price list; anything else is reported as unpriced rather than guessed.
@@ -141,7 +146,7 @@ function createFeed() {
   return {
     next: 0, start: 0, inherited: 0, items: [], calls: new Map(), pending: new Set(),
     source: null, loading: null, revision: 0, map: null,
-    modelEvents: [], modelName: '',
+    modelEvents: [], modelName: '', title: '', firstPrompt: '',
     phase: { name: 'idle', since: 0, label: '' },
     requests: [], lastPrompt: 0, stepCaps: [], costByCap: new Map(), catalog: new Map(),
   }
@@ -162,11 +167,14 @@ function fold(feed, event) {
     case 'user/message':
     case 'assistant/message': {
       const user = type === 'user/message'
+      let thinking = ''
+      let tokens
       if (!user) {
         const usage = data.usage || {}
         feed.modelEvents.push({ seq, input: usage?.inputTokens ?? 0, output: usage?.outputTokens ?? 0 })
         const cost = requestCost(usage, feed.modelName, time)
         const prompt = (Number(usage.inputTokens) || 0) + (Number(usage.cacheReadTokens) || 0) + (Number(usage.cacheWriteTokens) || 0)
+        if (data.usage) tokens = { input: prompt, output: Number(usage.outputTokens) || 0 }
         const delta = Math.max(0, prompt - feed.lastPrompt)
         feed.lastPrompt = prompt
         const caps = [...new Set(feed.stepCaps)]
@@ -184,15 +192,23 @@ function fold(feed, event) {
         })
         // Reasoning lives in a content block, not in its own event type.
         const blocks = Array.isArray(data.message?.content) ? data.message.content : []
-        const thinking = clip(blocks.filter((block) => block?.type === 'reasoning')
+        thinking = clip(blocks.filter((block) => block?.type === 'reasoning')
           .map((block) => block.text).join('\n\n'), 1600)
-        if (thinking) add({ kind: 'thinking', text: thinking, step: data.step })
+        if (thinking) add({ kind: 'thinking', text: thinking, step: data.step, tokens })
       }
       const text = clip(textOf(user ? data.content : data.message?.content), 1200)
-      if (text) add({ kind: user ? 'user' : 'reply', text, step: data.step })
+      if (user && text && !feed.firstPrompt && (data.source?.kind ?? 'user') === 'user') {
+        feed.firstPrompt = clip(text.replace(/\s+/g, ' '), 100)
+      }
+      if (text || (!user && data.usage && !thinking)) {
+        add({ kind: user ? 'user' : 'reply', text, step: data.step, tokens })
+      }
       feed.phase = { name: 'thinking', since: time, label: '' }
       break
     }
+    case 'session/title':
+      feed.title = clip(data.title, 120)
+      break
     case 'subagent/catalog': {
       // The parent session records the label a subagent was dispatched with.
       if (data.childId) {
@@ -302,7 +318,7 @@ function topSpend(feed, limit = 5) {
     .filter((request) => request.priced && request.usd > 0)
     .sort((a, b) => b.usd - a.usd)
     .slice(0, limit)
-    .map(({ seq, time, usd, prompt, output, cache, peak, model }) => ({ seq, time, usd, prompt, output, cache, peak, model }))
+    .map(({ seq, time, usd, prompt, output, cache, peak, model, priced }) => ({ seq, time, usd, prompt, output, cache, peak, model, priced }))
 }
 
 function statusOf(call) {
@@ -338,6 +354,7 @@ function aggregate(feed) {
     dot.callers.set(item.name, (dot.callers.get(item.name) ?? 0) + 1)
     group.hits++
     dot.hits++
+    group.seq = item.seq
     if (item.result?.time && item.time) {
       dot.totalMs += Math.max(0, item.result.time - item.time)
       dot.timed++
@@ -345,11 +362,14 @@ function aggregate(feed) {
     if (status === 'failed') {
       group.failed++
       dot.failed++
+      group.failureSeq = item.seq
       dot.failureSeq = item.seq
     }
     if (status === 'running') {
       group.running++
       dot.running++
+      dot.activeSeq = item.seq
+      dot.activeName = item.name
       active.push({ seq: item.seq, time: item.time, name: item.name, summary: item.summary, capId: cap.id, dotId: dot.id })
     }
     dot.seq = item.seq
@@ -420,8 +440,8 @@ function timeline(feed, query) {
 // view: same-origin Harness session, full data and the same information the
 //       conversation panel shows. board: detached window with a short-lived key
 //       and the reduced summary payload.
-function boardHtml(root, focus, detached = false) {
-  const safe = JSON.stringify({ root, focus, detached }).replace(/</g, '\\u003c')
+function boardHtml(root, focus, detached = false, initial = {}) {
+  const safe = JSON.stringify({ root, focus, detached, ...initial }).replace(/</g, '\\u003c')
   return `<!doctype html>
 <html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>工作流</title>
@@ -569,8 +589,8 @@ var MODEL = { x: 36, y: 244 };
 var state = {
   focus: config.focus || '',
   tab: 'map',
-  filter: 'all',
-  cursor: null,
+  filter: config.filter || 'all',
+  cursor: config.at == null ? null : { key: 'at', value: config.at },
   map: null,
   timeline: null,
   versions: {},
@@ -948,10 +968,11 @@ function paintAgents(data) {
 }
 function timelineRow(item) {
   var at = ' data-seq-row="' + esc(item.seq) + '"';
+  var tokens = item.tokens ? '<span class="muted">' + fmt(item.tokens.input) + ' 输入 / ' + fmt(item.tokens.output) + ' 输出 Token</span>' : '';
   if (item.kind === 'thinking') {
     return '<div class="item"' + at + '><span class="meta">思考</span><div class="body">'
       + '<details open><summary>推理过程' + (item.step != null ? ' · 第 ' + esc(item.step) + ' 步' : '') + '</summary>'
-      + '<div class="text">' + esc(item.text || '') + '</div></details></div>'
+      + '<div class="text">' + esc(item.text || '') + '</div></details>' + tokens + '</div>'
       + '<span class="tail">#' + esc(item.seq) + '</span></div>';
   }
   if (item.kind === 'turn') {
@@ -964,14 +985,14 @@ function timelineRow(item) {
   if (item.kind === 'user' || item.kind === 'reply') {
     var who = item.kind === 'user' ? '你' : '模型回复';
     return '<div class="item"' + at + '><span class="meta">' + esc(who) + '</span><div class="body">'
-      + '<div class="text">' + esc(item.text || '') + '</div></div>'
+      + (item.text ? '<div class="text">' + esc(item.text) + '</div>' : '') + tokens + '</div>'
       + '<span class="tail">#' + esc(item.seq) + '</span></div>';
   }
   if (item.kind === 'result') {
     var status = item.result ? item.result.status : '';
     return '<div class="item"' + at + '><span class="meta">结果</span><div class="body">'
       + '<b>' + esc(item.name || '') + '</b>' + statusChip(status)
-      + (item.result && item.result.text ? '<details><summary>结果摘要</summary><div class="text">' + esc(item.result.text) + '</div></details>' : '')
+      + (item.result && item.result.text ? '<details' + (state.cursor?.key === 'at' && Number(state.cursor.value) === item.seq ? ' open' : '') + '><summary>结果摘要</summary><div class="text">' + esc(item.result.text) + '</div></details>' : '')
       + (item.result && item.result.error ? '<div class="text muted">' + esc(item.result.error) + '</div>' : '')
       + '</div><span class="tail">#' + esc(item.seq) + '</span></div>';
   }
@@ -980,7 +1001,7 @@ function timelineRow(item) {
   return '<div class="item"' + at + '><span class="meta">工具</span><div class="body">'
     + '<b>' + esc(item.name || '') + '</b>' + statusChip(state2)
     + (item.summary ? '<div class="text muted">' + esc(item.summary) + '</div>' : '')
-    + (item.result && item.result.text ? '<details><summary>结果摘要</summary><div class="text">' + esc(item.result.text) + '</div></details>' : '')
+    + (item.result && item.result.text ? '<details' + (state.cursor?.key === 'at' && Number(state.cursor.value) === item.seq ? ' open' : '') + '><summary>结果摘要</summary><div class="text">' + esc(item.result.text) + '</div></details>' : '')
     + (item.result && item.result.error ? '<div class="text muted">' + esc(item.result.error) + '</div>' : '')
     + '</div><span class="tail">' + esc(took) + ' #' + esc(item.seq) + '</span></div>';
 }
@@ -1112,6 +1133,16 @@ if (MODE === 'view') {
     fetchMap();
     if (state.tab === 'timeline') fetchTimeline();
   });
+  if (config.filter || config.at != null) {
+    state.tab = 'timeline';
+    byId('tab-map').setAttribute('aria-pressed', 'false');
+    byId('tab-timeline').setAttribute('aria-pressed', 'true');
+    byId('pane-map').hidden = true;
+    byId('pane-timeline').hidden = false;
+    byId('filters').querySelectorAll('[data-filter]').forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.dataset.filter === state.filter));
+    });
+  }
 }
 setInterval(function () { if (!document.hidden) paintPhase() }, 250);
 tick();
@@ -1124,6 +1155,7 @@ export function apply(ctx) {
   const live = new Map()
   const lineages = new Map()
   const boardPasses = new Map()
+  const pickerReads = new Set()
   const epoch = Date.now().toString(36)
   let revision = 0
 
@@ -1153,7 +1185,7 @@ export function apply(ctx) {
       const from = Math.max(inherited, live.seq - LOG_WINDOW)
       const replace = feed.source !== live || feed.next < from || feed.next > live.seq
       const events = live.snapshotEvents(replace ? from : feed.next, live.seq)
-      if (replace) Object.assign(feed, createFeed())
+      if (replace) Object.assign(feed, { ...createFeed(), title: feed.title, firstPrompt: feed.firstPrompt })
       append(feed, events, from)
       feed.inherited = inherited
       feed.next = live.seq
@@ -1166,6 +1198,8 @@ export function apply(ctx) {
       const snapshot = await ctx.sessionQuery.readSession(id)
       const from = Math.max(snapshot.inheritedEventCount ?? 0, snapshot.events.length - LOG_WINDOW)
       const fresh = createFeed()
+      fresh.title = feed.title
+      fresh.firstPrompt = feed.firstPrompt
       append(fresh, snapshot.events.slice(from), from)
       fresh.inherited = snapshot.inheritedEventCount ?? 0
       settle(fresh, 'interrupted', 0)
@@ -1250,7 +1284,7 @@ export function apply(ctx) {
   // another session's log.
   function cachedStats(id) {
     const feed = feeds.get(id)
-    if (!feed || feed.loading || !feed.source) return null
+    if (!feed?.source) return null
     const data = aggregate(feed)
     return { calls: data.calls, usd: data.spend.usd, priced: data.spend.priced, requests: data.spend.requests }
   }
@@ -1343,75 +1377,166 @@ export function apply(ctx) {
 
   // Multi-session canvas: several sessions side by side on one page, each with
   // its own capabilities and the subagents it dispatched.
-  async function canvasData(request, peer) {
-    if (denied(request, peer)) return json({ error: 'access_denied' }, 403)
+  async function canvasData(request, peer, browserPass) {
+    if (!browserPass && denied(request, peer)) return json({ error: 'access_denied' }, 403)
     const query = new URL(request.url, 'http://localhost').searchParams
-    const wanted = (query.get('roots') || '').split(',').map((id) => id.trim()).filter(Boolean).slice(0, MAX_ROOTS)
+    const compact = Boolean(browserPass) || query.get('compact') === '1'
+    const graphs = Boolean(browserPass) || (compact && query.get('graphs') === '1')
+    const graphMode = graphs ? query.get('mode') : null
+    const family = Boolean(browserPass) || (graphs && query.get('family') === '1')
+    const inspected = query.get('inspect')
+    const wanted = [...new Set((query.has('roots') ? query.get('roots').split(',') : browserPass?.roots || []).map((id) => id.trim()).filter(Boolean))]
+      .slice(0, compact ? MAX_SESSIONS : MAX_ROOTS)
     try {
       const corpus = await ctx.sessionQuery.listSessions()
-      const records = (corpus || []).slice(0, MAX_SESSIONS).map((record) => ({
-        id: record.header?.id || '',
-        parent: record.header?.parentSession || null,
-        created: record.header?.createdAt || 0,
-        live: record.live === true,
-      })).filter((row) => row.id)
-      const store = ctx.get('sessions')
-      if (store && typeof store.list === 'function') {
-        for (const session of store.list()) {
-          live.set(session.header ? session.header.id : String(session.id), true)
+      const listed = new Map((corpus || []).filter((record) => record.header?.id)
+        .map((record) => [record.header.id, record]))
+      const initial = new Set(browserPass?.roots)
+      const shown = wanted.filter((id) => {
+        const record = listed.get(id)
+        return record && (!browserPass || !sessionParent(record) || initial.has(id))
+      })
+      let omittedBranches = 0
+      if (family) {
+        const children = new Map()
+        for (const [id, record] of listed) {
+          const parent = sessionParent(record)
+          if (!parent || parent === id) continue
+          if (!children.has(parent)) children.set(parent, [])
+          children.get(parent).push(id)
+        }
+        const visited = new Set(shown)
+        for (const id of shown) {
+          for (const child of children.get(id) || []) {
+            if (visited.has(child)) continue
+            visited.add(child)
+            if (shown.length >= MAX_SESSIONS) { omittedBranches++; continue }
+            shown.push(child)
+          }
         }
       }
-      const sessions = records.map((record) => {
-        const cached = cachedStats(record.id)
-        const feed = feeds.get(record.id)
-        if (!cached) readFeed(record.id).catch(() => {})
+      const recent = browserPass
+        ? [...listed].filter(([, record]) => !sessionParent(record)).slice(0, MAX_SESSIONS).map(([id]) => id)
+        : listed.keys()
+      const ids = [...new Set([...shown, ...recent])]
+      if (!browserPass) ids.length = Math.min(ids.length, MAX_SESSIONS)
+      const store = ctx.get('sessions')
+      const selected = new Set(shown)
+      // Keep this canvas's selected feeds ahead of background picker reads.
+      for (const id of shown) {
+        const feed = feeds.get(id)
+        if (feed) retain(feeds, id, feed)
+      }
+      for (const id of ids.slice(0, MAX_SESSIONS)) {
+        const feed = feeds.get(id)
+        if (feed?.loading) continue
+        const attached = store?.get(id)
+        const changedSource = feed?.source && (attached ? feed.source !== attached : feed.source !== 'disk')
+        if (attached || (selected.has(id) && (changedSource || !feed?.source))) {
+          readFeed(id).catch(() => {})
+        } else if ((!feed?.source || changedSource) && pickerReads.size < 4) {
+          pickerReads.add(id)
+          readFeed(id).catch(() => {}).finally(() => pickerReads.delete(id))
+        }
+      }
+      const catalog = new Map()
+      for (const id of ids) {
+        for (const [childId, entry] of feeds.get(id)?.catalog ?? []) catalog.set(childId, entry.label)
+      }
+      const working = (id) => {
+        const record = listed.get(id)
+        const attached = Boolean(store?.get(id) || record?.live)
+        if (!attached) return false
+        const feed = feeds.get(id)
+        if (feed?.source && feed.source !== 'disk') {
+          return feed.pending.size > 0 || (live.get(id) ?? feed.phase.name !== 'idle')
+        }
+        return live.get(id) === true
+      }
+      const sessions = ids.map((id) => {
+        const record = listed.get(id)
+        const feed = feeds.get(id)
+        const cached = cachedStats(id)
+        const cwd = String(record.header.cwd || '').split(/[\\/]/).filter(Boolean).at(-1) || ''
         return {
-          ...record,
-          running: live.get(record.id) === true,
+          id,
+          parent: family ? sessionParent(record) : record.header.parentSession || null,
+          created: record.header.createdAt || 0,
+          live: record.live === true,
+          project: clip(cwd, 80),
+          label: catalog.get(id) || feed?.title || (browserPass ? '' : feed?.firstPrompt) || '',
+          running: working(id),
           ready: Boolean(cached),
           ...(cached || {}),
-          model: feed && !feed.loading && feed.source ? modelOf(feed).name : '',
+          model: cached ? modelOf(feed).name : '',
         }
       })
-      const roots = []
-      for (const id of wanted) {
-        if (!records.some((record) => record.id === id)) continue
+      const roots = await Promise.all(shown.map(async (id) => {
         const feed = feeds.get(id)
-        if (!feed || feed.loading || !feed.source) {
-          readFeed(id).catch(() => {})
-          roots.push({ id, ready: false })
-          continue
-        }
+        if (!feed?.source) return { id, ready: false }
         const map = aggregate(feed)
-        const known = records.find((record) => record.id === id)
-        let agents = []
-        try {
-          const lineage = await lineageFor(id)
-          agents = lineage.rows.slice(1).filter((row) => row.id !== id).map((row) => ({
-            id: row.id,
-            label: row.label || feed.catalog.get(row.id)?.label || '',
-            depth: row.depth,
-            running: live.get(row.id) === true,
-            ...(cachedStats(row.id) || {}),
-          }))
-        } catch { /* an unreachable lineage keeps the session itself on the canvas */ }
-        roots.push({
+        const summary = {
           id,
           ready: true,
-          parent: known?.parent || null,
+          parent: family ? sessionParent(listed.get(id)) : listed.get(id).header.parentSession || null,
           model: modelOf(feed).name,
           calls: map.calls,
           failures: map.failures,
           running: map.running,
+          phase: working(id) ? map.phase : { name: 'idle' },
           usd: map.spend.usd,
           priced: map.spend.priced,
+          unpriced: map.spend.unpriced,
+        }
+        if (compact && !graphs && inspected !== id) return summary
+        const matching = graphMode === 'failed' ? map.nodes.filter((node) => node.failed)
+          : graphMode === 'running' ? map.nodes.filter((node) => node.running) : map.nodes
+        const rank = (dot) => graphMode === 'failed' ? Number(Boolean(dot.failed)) : Number(Boolean(dot.running))
+        const nodes = matching.slice(0, 8).map(({ dots, ...node }) => ({
+          ...node,
+          dots: dots.slice().sort((a, b) => rank(b) - rank(a) || Number(Boolean(b.failed)) - Number(Boolean(a.failed))
+            || b.seq - a.seq).slice(0, graphs && inspected !== id ? 5 : 12),
+        }))
+        const graph = {
+          ...summary,
+          active: map.active.map(({ seq, time, name, capId, dotId }) => ({ seq, time, name, capId, dotId })),
+          nodeCount: map.nodes.length,
+          ...(graphs ? { omittedCapabilities: Math.max(0, matching.length - nodes.length) } : {}),
+          nodes,
+          topSteps: map.topSteps,
+        }
+        if (graphs && inspected !== id) return graph
+        let agents = []
+        try {
+          const lineage = await lineageFor(id)
+          agents = lineage.rows.slice(1).filter((row) => !browserPass || shown.includes(row.id)).map((row) => ({
+            id: row.id,
+            label: row.label || catalog.get(row.id) || feeds.get(row.id)?.title || '',
+            depth: row.depth,
+            running: working(row.id),
+            ...(cachedStats(row.id) || {}),
+          }))
+        } catch { /* an unreachable lineage keeps the session itself on the canvas */ }
+        const failureSeqs = new Set(nodes.flatMap((node) => [node.failureSeq, ...node.dots.map((dot) => dot.failureSeq)]))
+        return {
+          ...graph,
+          active: map.active,
           agents,
-          nodes: map.nodes.slice(0, 8).map(({ dots, ...node }) => ({ ...node, dots: dots.slice(0, 12) })),
-        })
-      }
-      const version = [epoch, roots.map((root) => root.id.slice(0, 8) + ':' + (root.calls || 0)).join(','), sessions.filter((row) => row.ready).length].join('-')
+          recentFailures: feed.items.filter((item) => item.result?.status === 'failed').slice(-8).reverse()
+            .map(({ seq, name, object, result }) => ({
+              seq, name, capId: object?.cap.id, target: object?.label || '',
+              error: result.error || result.text || '',
+            })),
+          ...(graphs ? {
+            evidence: Object.fromEntries(feed.items.filter((item) => failureSeqs.has(item.seq))
+              .map((item) => [item.seq, item.result.error || item.result.text || ''])),
+          } : {}),
+        }
+      }))
+      const data = { roots, sessions, asOf: PRICING_AS_OF, ...(family ? { omittedBranches } : {}) }
+      const version = createHash('sha256').update(JSON.stringify(data)).digest('hex')
       if (query.get('version') === version) return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
-      return json({ roots, sessions, version, asOf: PRICING_AS_OF })
+      return json({ ...data, version })
     } catch {
       return json({ error: 'session_unavailable' }, 503)
     }
@@ -1461,7 +1586,10 @@ export function apply(ctx) {
     const root = query.get('root')
     const focus = query.get('focus') || root
     if (!root || root.length > 180) return new Response('invalid session', { status: 400 })
-    return html(boardHtml(root, focus))
+    const requestedFilter = query.get('filter')
+    const filter = ['failed', 'thinking'].includes(requestedFilter) ? requestedFilter : undefined
+    const at = /^\d{1,15}$/.test(query.get('at') || '') ? Number(query.get('at')) : undefined
+    return html(boardHtml(root, focus, false, { filter, at }))
   }
 
   function boardOrigin(request) {
@@ -1473,6 +1601,15 @@ export function apply(ctx) {
     return address.origin
   }
 
+  function issuePass(data) {
+    const now = Date.now()
+    for (const [key, pass] of boardPasses) if (pass.expires <= now) boardPasses.delete(key)
+    if (boardPasses.size >= BOARD_LIMIT) boardPasses.delete(boardPasses.keys().next().value)
+    const key = randomBytes(32).toString('base64url')
+    boardPasses.set(key, { ...data, expires: now + BOARD_TTL })
+    return key
+  }
+
   async function issueBoard(request, peer) {
     const origin = boardOrigin(request)
     // On older Harness versions raw webServer resources do not receive a Peer.
@@ -1480,34 +1617,49 @@ export function apply(ctx) {
     const admission = peer ?? ctx.get('connection')?.admit?.(request)?.peer
     if (!origin || !admission || request.headers.get('x-awv-detach') !== '1') return json({ error: 'access_denied' }, 403)
     const query = new URL(request.url).searchParams
+    if (query.get('view') === 'canvas') {
+      const roots = [...new Set((query.get('roots') || '').split(',').filter(Boolean))].slice(0, MAX_SESSIONS)
+      if (roots.some((id) => id.length > 180)) return json({ error: 'invalid_session' }, 400)
+      try {
+        const records = (await ctx.sessionQuery.listSessions() || []).filter((record) => record.header?.id)
+        const listed = new Set(records.map((record) => record.header.id))
+        if (roots.some((id) => !listed.has(id))) return json({ error: 'session_not_found' }, 404)
+        const key = issuePass({ roots })
+        return json({ url: origin + '/agent-workflow/canvas-board#' + new URLSearchParams({ key, roots: roots.join(',') }) })
+      } catch {
+        return json({ error: 'session_unavailable' }, 503)
+      }
+    }
     const root = query.get('root')
     const focus = query.get('focus') || root
     if (!root || root.length > 180 || focus.length > 180) return json({ error: 'invalid_session' }, 400)
     try {
       const { rows } = await lineageFor(root)
       if (!rows.some((row) => row.id === focus)) return json({ error: 'session_not_found' }, 404)
-      const now = Date.now()
-      for (const [key, pass] of boardPasses) if (pass.expires <= now) boardPasses.delete(key)
-      if (boardPasses.size >= BOARD_LIMIT) boardPasses.delete(boardPasses.keys().next().value)
-      const key = randomBytes(32).toString('base64url')
-      boardPasses.set(key, { focus, expires: now + BOARD_TTL })
+      const key = issuePass({ focus })
       return json({ url: origin + '/agent-workflow/board#key=' + key })
     } catch {
       return json({ error: 'session_unavailable' }, 503)
     }
   }
 
-  async function boardData(request) {
+  function boardAccess(request, kind) {
     const origin = boardOrigin(request)
     const source = request.headers.get('origin')
     const site = request.headers.get('sec-fetch-site')
     if (!origin || (source && source !== origin) || site === 'cross-site' || site === 'same-site') return json({ error: 'access_denied' }, 403)
     const key = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') || '')?.[1]
     const pass = boardPasses.get(key)
-    if (!pass || pass.expires <= Date.now()) {
-      if (pass) boardPasses.delete(key)
+    if (pass?.expires <= Date.now()) boardPasses.delete(key)
+    if (!pass?.[kind] || pass.expires <= Date.now()) {
       return json({ error: 'board_expired' }, 401)
     }
+    return pass
+  }
+
+  async function boardData(request) {
+    const pass = boardAccess(request, 'focus')
+    if (pass instanceof Response) return pass
     try {
       const feed = await readFeed(pass.focus)
       const version = epoch + '-' + feed.revision
@@ -1528,6 +1680,39 @@ export function apply(ctx) {
     }
   }
 
+  async function canvasBoardData(request) {
+    const pass = boardAccess(request, 'roots')
+    if (pass instanceof Response) return pass
+    const response = await canvasData(request, null, pass)
+    if (!response.ok || response.status === 204) return response
+    const data = await response.json()
+    // Send session titles and activity without tool arguments or log excerpts.
+    for (const session of data.sessions) {
+      if (!data.sessions.some((entry) => entry.id === session.parent)) session.parent = null
+    }
+    for (const root of data.roots) {
+      if (!data.sessions.some((entry) => entry.id === root.parent)) root.parent = null
+      for (const item of root.active || []) delete item.summary
+      for (const node of root.nodes || []) {
+        for (const dot of node.dots) {
+          dot.label = (dot.caller || '对象') + ' #' + dot.id
+          delete dot.detail
+        }
+      }
+      for (const failure of root.recentFailures || []) {
+        failure.error = ''
+        failure.target = ''
+      }
+      delete root.evidence
+    }
+    delete data.version
+    const version = createHash('sha256').update(JSON.stringify(data)).digest('hex')
+    if (new URL(request.url).searchParams.get('version') === version) {
+      return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store' } })
+    }
+    return json({ ...data, version })
+  }
+
   for (const [name, resource] of [
     ['map', view('map')],
     ['snapshot', view('timeline')],
@@ -1543,6 +1728,8 @@ export function apply(ctx) {
   for (const [name, resource] of [
     ['board', (request) => boardOrigin(request) ? html(boardHtml('', '', true)) : json({ error: 'access_denied' }, 403)],
     ['board-data', boardData],
+    ['canvas-board', (request) => boardOrigin(request) ? html(canvasHtml()) : json({ error: 'access_denied' }, 403)],
+    ['canvas-board-data', canvasBoardData],
   ]) {
     ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/agent-workflow/' + name, auth: 'anonymous', resource }))
   }

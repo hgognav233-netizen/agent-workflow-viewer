@@ -781,19 +781,60 @@ window.__ModuleLoader__.load({
     // Application-level page: several sessions on one canvas, independent of the
     // open conversation. The canvas itself is the plugin's own page, framed here.
     function CanvasPage() {
+      const desktop = location.protocol === 'dsh-app:'
+      const [opening, setOpening] = useState(false)
+      const [link, setLink] = useState('')
+      const [note, setNote] = useState('')
+      const frame = useRef(null)
+
+      async function openCanvas() {
+        let roots = ''
+        try {
+          const hash = frame.current?.contentWindow?.location.hash || ''
+          roots = new URLSearchParams(hash.slice(1)).get('roots') ?? localStorage.getItem('awv.canvas.roots') ?? ''
+        } catch { /* a canvas that is still loading cannot supply a selection */ }
+        setOpening(true)
+        setNote('')
+        setLink('')
+        try {
+          const query = new URLSearchParams({ view: 'canvas', roots })
+          const response = await fetch('/agent-workflow/board-link?' + query, {
+            headers: { 'x-awv-detach': '1' }, cache: 'no-store',
+          })
+          if (!response.ok) throw new Error(String(response.status))
+          const address = new URL((await response.json()).url)
+          const fragment = new URLSearchParams(address.hash.slice(1))
+          if (!['http:', 'https:'].includes(address.protocol)
+            || !['127.0.0.1', '[::1]', 'localhost'].includes(address.hostname)
+            || address.username || address.password || address.pathname !== '/agent-workflow/canvas-board'
+            || !/^[A-Za-z0-9_-]{43}$/.test(fragment.get('key') || '')) throw new Error('invalid canvas address')
+          setLink(address.href)
+          window.open(address.href, '_blank', 'noopener,noreferrer')
+        } catch {
+          setNote(t('无法生成浏览器链接，请重启 Harness 后重试。', 'Could not create a browser link. Restart Harness and try again.'))
+        } finally {
+          setOpening(false)
+        }
+      }
+
       return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: 'var(--dsh-frame-top-clearance, 0px)', background: 'var(--dsw-alias-bg-layer-1,#fdfdfb)' } },
         h('div', { style: {
           display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
           borderBottom: '1px solid var(--dsw-alias-border-l1,#e5e5e0)', fontSize: 12,
         } },
-          h('b', null, t('工作流画布', 'Workflow canvas')),
-          h('span', { style: { opacity: .6 } }, t('所有会话，可多选', 'All sessions, multi-select')),
-          h('a', {
+          note ? h('span', { role: 'status' }, note) : null,
+          desktop ? h('button', {
+            type: 'button', disabled: opening, onClick: openCanvas,
+            style: { marginLeft: 'auto', cursor: opening ? 'default' : 'pointer' },
+          }, opening ? t('正在准备链接…', 'Preparing link…') : t('在浏览器打开', 'Open in browser')) : h('a', {
             href: '/agent-workflow/canvas', target: '_blank', rel: 'noopener noreferrer',
             style: { marginLeft: 'auto', color: 'inherit', fontSize: 11, opacity: .7 },
           }, t('在新标签打开', 'Open in a tab')),
+          link ? h('a', { href: link, target: '_blank', rel: 'noopener noreferrer', style: { color: 'inherit' } },
+            t('浏览器没打开？点这里', 'Browser did not open? Use this link')) : null,
         ),
         h('iframe', {
+          ref: frame,
           title: t('工作流画布', 'Workflow canvas'),
           src: '/agent-workflow/canvas',
           style: { flex: 1, width: '100%', border: 0, display: 'block', minHeight: 0 },
