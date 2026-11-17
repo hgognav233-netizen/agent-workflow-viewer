@@ -8,9 +8,9 @@
 
 | 你想要的布局 | 做法 |
 | --- | --- |
-| 同一个实时会话的对话和看板各占半屏 | 在 **DSH Web** 中打开会话与插件，点「独立窗口」。浏览器允许弹窗时，看板会在第二个浏览器窗口里打开。两个窗口连接同一个 Web Host。 |
-| DSH Desktop 看板和另一个软件各占半屏 | 点面板右上方的「⤢ 占满窗口」，再用 Windows 的 `Win + ← / →` 排列 DSH 和另一个应用。看板仍占用原来的 DSH 窗口。 |
-| 保留 DSH Desktop 对话，同时把它的实时看板放到第二个窗口 | 在更新后的插件中点「浏览器看板」。它会用系统浏览器打开所选会话的实时摘要。若浏览器在已有窗口里打开标签页，可将该标签页拖成独立窗口再分屏。 |
+| 同一个实时会话的对话和画布各占半屏 | 在 **DSH Web** 中打开「◇ 工作流」，点标题栏的「在新标签打开」，再把标签页拖成独立窗口。两个窗口连接同一个 Web Host。 |
+| DSH Desktop 画布和另一个软件各占半屏 | 点面板右上方的「⤢」占满窗口，再用 Windows 的 `Win + ← / →` 排列 DSH 和另一个应用。画布仍占用原来的 DSH 窗口。 |
+| 保留 DSH Desktop 对话，同时把它的实时画布放到第二个窗口 | 点画布标题栏的「在浏览器打开」。系统浏览器会打开同一个画布，信息和 Harness 里一样。若浏览器在已有窗口里打开标签页，可将该标签页拖成独立窗口再分屏。 |
 
 [Windows 分屏说明](https://support.microsoft.com/en-gb/windows/experience/snap-your-windows)
 
@@ -22,9 +22,9 @@
 
 排查面板内部的点击问题时，确认它挂在 `shell.overlay`，并且面板启用了 `pointer-events: auto`。SVG 拖动超过 5 px 后再捕获指针，给节点保留正常的点击事件。
 
-### 浏览器看板的访问范围
+### 浏览器链接的访问范围
 
-看板连接正在运行的 Desktop Host，显示工作阶段、工具名和汇总计数。链接仅限本机和所选会话，两小时后或 Host 退出后失效。浏览器看板使用独立授权，页面不提供日志正文、工具参数或完整时间线。从 DSH Web 打开的看板页（`/agent-workflow/view`）走的是同源登录态，与对话面板读取同一份数据，因此内容完整——上面这段的精简范围只适用于 Desktop 的浏览器看板。若第二个窗口也必须属于 DSH Desktop，则需要桌面壳的窗口接口。 [DSH 窗口贡献提案 #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
+链接连接正在运行的 Desktop Host，内容和 Harness 里的画布相同，包括时间线、对象路径和错误原因。链接只在本机回环地址可用，两小时后或 Host 退出后失效；密钥在地址 `#` 之后，不会发给服务器。拿到链接的人在这台电脑上能看到这些记录，请不要转发。早于这一版的浏览器看板只提供精简摘要，旧的 `/agent-workflow/view` 页面现在会打开聚焦该会话的画布。若第二个窗口也必须属于 DSH Desktop，则需要桌面壳的窗口接口。 [DSH 窗口贡献提案 #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
 
 ## English
 
@@ -32,9 +32,9 @@
 
 | Layout | How to use it |
 | --- | --- |
-| Conversation and live board side by side | Open the conversation and plugin in **DSH Web**, then select **Detach**. With pop-ups allowed, the board opens in a second browser window. Both windows use the same Web Host. |
-| DSH Desktop board alongside another app | Select **⤢ Fill window**, then use Windows `Win + Left / Right` to snap DSH and the other app. The board uses the original DSH window. |
-| DSH Desktop conversation and its live board in separate windows | Select **Browser board** in the updated plugin. The live summary opens in the system browser. If the browser opens a tab in an existing window, drag it out before snapping the two windows. |
+| Conversation and live canvas side by side | In **DSH Web**, open **◇ Workflow**, select **Open in a tab** in its header, and drag the tab into its own window. Both windows use the same Web Host. |
+| DSH Desktop canvas alongside another app | Select **⤢** to fill the window, then use Windows `Win + Left / Right` to snap DSH and the other app. The canvas uses the original DSH window. |
+| DSH Desktop conversation and its live canvas in separate windows | Select **Open in browser** in the canvas header. The system browser opens the same canvas with the same information. If the browser opens a tab in an existing window, drag it out before snapping the two windows. |
 
 [Windows Snap documentation](https://support.microsoft.com/en-gb/windows/experience/snap-your-windows)
 
@@ -46,6 +46,6 @@
 
 When debugging clicks inside the panel, check that it mounts in `shell.overlay` and enables `pointer-events: auto`. Capture the SVG pointer only after movement exceeds 5 px so nodes still receive click events.
 
-### Browser board access
+### Browser link access
 
-The browser board connects to the running Desktop Host and displays its working phase, tool names, and counts. The link is local and scoped to the selected session. It expires after two hours or when the Host exits. It uses separate authorization and omits message text, tool arguments, and the full timeline. The board page opened from DSH Web (`/agent-workflow/view`) uses the same authenticated data as the conversation panel, so it shows everything; the reduced scope above applies only to the DSH Desktop browser board. A second native DSH window requires a desktop shell API. [DSH window contribution proposal #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)
+The link connects to the running Desktop Host and shows the same information as the canvas inside Harness, including the timeline, object paths, and error text. It works only on a loopback address and expires after two hours or when the Host exits; its key sits after `#` and is not sent to the server. Anyone with the link on this computer can read these records, so do not pass it on. Browser boards from earlier versions showed a reduced summary, and the former `/agent-workflow/view` page now opens the canvas focused on that session. A second native DSH window requires a desktop shell API. [DSH window contribution proposal #8044](https://github.com/deepseek-ai/deepseek-harness/discussions/8044)

@@ -2,11 +2,17 @@
 
 ## Unreleased
 
-- Fixes the canvas opening at 1% zoom with nothing visible. The first fit now waits until the viewport has a usable size, and the canvas fits again when the viewport is resized, until you move the camera yourself.
-- The canvas follows the browser language: Simplified Chinese when it is Chinese, English otherwise, including number, date, and currency formats.
-- The board, the canvas, and the conversation panel use the same names for capabilities and zones. The board shows 网络 / 外部服务 instead of 云端 / 外部程序, and capability names instead of internal ids such as `web` or `shell`.
-- The colour scheme is stored under one key, `awv.theme`, shared by the panel, the board, and the canvas. A choice saved under the earlier keys is kept.
-- A collapsed child task on the canvas shows only its state and timer on a single line.
+One interface instead of three: the canvas is now the only view. The conversation panel and the browser link show the same canvas.
+
+- **Session list matches the Harness sidebar.** Grouped by workspace, pinned sessions first, then by latest activity, with the sidebar's own titles. Subagent and blank sessions are left out; archived sessions can be shown from the bottom of the list. The list is no longer cut at 40 sessions.
+- **Language and colours follow Harness.** Inside Harness the canvas uses the Harness language setting and switches as soon as it changes, and takes the Harness colour scheme, accent colour, and font. A browser link carries the language it was opened in; on its own page the canvas keeps its colour-scheme button.
+- **Conversation panel** (◇ Workflow) now shows the canvas focused on the current session, with its child tasks, instead of the earlier dot graph. **⤢** fills the window and **×** or Esc closes it.
+- **Detail panel** has an **Overview** and a **Timeline** tab. The timeline lists messages, reasoning, tool calls with their results, and turn boundaries, with All / Tools / Thinking / Failures filters and paging. Every "open record" link lands there, in Harness and in the browser alike.
+- **Browser link** from DSH Desktop shows the same information as the canvas inside Harness, including object names, error text, and the timeline. It is still loopback-only and expires after two hours.
+- **Cards** show the full session title in their header. Running paths use the accent colour and failures are red. Coordination calls such as `subagent` or `wait_agent` read as actions ("Start child task"), and MCP tools as "MCP · server".
+- **Removed:** the standalone board (`/agent-workflow/board`, `/agent-workflow/board-data`) and the separate header bar above the canvas page. `/agent-workflow/view?root=…` now opens the canvas focused on that session.
+- Fixes the canvas opening at 1% zoom with nothing visible. The first fit waits until the viewport has a usable size, and the canvas fits again on resize until you move the camera yourself.
+- Number, date, and currency formats follow the interface language. The colour scheme is stored under one key, `awv.theme`; a choice saved under the earlier key is kept.
 
 ## 0.3.0
 
