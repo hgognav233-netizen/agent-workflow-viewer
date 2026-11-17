@@ -22,16 +22,16 @@ Open `/agent-workflow/canvas` directly while signed in to DSH Web. In DSH Deskto
 
 ## Install
 
-Install version `0.3.0` from GitHub in the DSH Web profile:
+Install version `0.4.0` from GitHub in the DSH Web profile:
 
 ```sh
-dsh plugin --profile web add github:hgognav233-netizen/agent-workflow-viewer#v0.3.0
+dsh plugin --profile web add github:hgognav233-netizen/agent-workflow-viewer#v0.4.0
 ```
 
 In DSH Desktop, open **Plugins** and paste the Git source:
 
 ```text
-git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git#v0.3.0
+git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git#v0.4.0
 ```
 
 Enable the bundle, restart the Harness host, and choose **Workflow** in the sidebar.

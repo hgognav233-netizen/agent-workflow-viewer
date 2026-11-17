@@ -1,6 +1,6 @@
 {
   "name": "agent-workflow-viewer",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A live workflow canvas for DeepSeek Harness sessions, subagents, tool failures, and estimated spend.",
   "type": "module",
   "scripts": { "test": "node --test test/viewer.test.js" },

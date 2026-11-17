@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 One interface instead of three: the canvas is now the only view. The conversation panel and the browser link show the same canvas.
 

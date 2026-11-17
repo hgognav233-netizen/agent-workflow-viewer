@@ -22,16 +22,16 @@
 
 ## 安装
 
-在 DSH Web 的 `web` profile 中从 GitHub 安装 `0.3.0`：
+在 DSH Web 的 `web` profile 中从 GitHub 安装 `0.4.0`：
 
 ```sh
-dsh plugin --profile web add github:hgognav233-netizen/agent-workflow-viewer#v0.3.0
+dsh plugin --profile web add github:hgognav233-netizen/agent-workflow-viewer#v0.4.0
 ```
 
 在 DSH Desktop 打开「插件」，填入 Git 源地址：
 
 ```text
-git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git#v0.3.0
+git+https://github.com/hgognav233-netizen/agent-workflow-viewer.git#v0.4.0
 ```
 
 启用插件，重启 Harness，然后从左栏打开「工作流」。
