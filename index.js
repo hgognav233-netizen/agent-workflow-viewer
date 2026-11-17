@@ -579,12 +579,18 @@ var KIND = {
   web: '网页检索', file: '项目文件', skill: '技能', shell: '终端', agent: '子 Agent',
   memory: '历史会话', plan: '计划', plugin: '插件', tool: '工具', mcp: 'MCP 服务'
 };
+// Same names as the conversation panel (client.js zones and kindLabels).
 var ZONES = [
-  { id: 'web', label: '云端' },
+  { id: 'web', label: '网络' },
   { id: 'process', label: '本机进程' },
   { id: 'disk', label: '本机磁盘' },
-  { id: 'external', label: '外部程序' }
+  { id: 'external', label: '外部服务' }
 ];
+function capName(node) { return node.label || KIND[node.kind] || node.id }
+function zoneName(id) {
+  var zone = ZONES.filter(function (entry) { return entry.id === id })[0];
+  return zone ? zone.label : id;
+}
 var MODEL = { x: 36, y: 244 };
 var state = {
   focus: config.focus || '',
@@ -728,8 +734,8 @@ function drawGraph(data) {
           out.push('<text class="dotlabel" x="' + (entry.x + 8) + '" y="' + (entry.y + 3) + '" font-size="8">' + esc(short(dot.label, 26)) + '</text>');
         }
       });
-      out.push('<circle cx="' + group.hub.x + '" cy="' + group.hub.y + '" r="' + (3 + Math.min(4, Math.log2((group.node.count || 1) + 1))) + '" fill="var(--ink)" data-cap="' + esc(group.node.id) + '" style="cursor:pointer"><title>' + esc((group.node.label || group.node.id) + ' · ' + group.node.count + ' 个对象 · ' + group.node.hits + ' 次') + '</title></circle>');
-      out.push('<text x="' + (group.hub.x + 9) + '" y="' + (group.hub.y - 6) + '" font-size="9.5" fill="var(--ink)">' + esc(group.node.label || group.node.id) + '</text>');
+      out.push('<circle cx="' + group.hub.x + '" cy="' + group.hub.y + '" r="' + (3 + Math.min(4, Math.log2((group.node.count || 1) + 1))) + '" fill="var(--ink)" data-cap="' + esc(group.node.id) + '" style="cursor:pointer"><title>' + esc(capName(group.node) + ' · ' + group.node.count + ' 个对象 · ' + group.node.hits + ' 次') + '</title></circle>');
+      out.push('<text x="' + (group.hub.x + 9) + '" y="' + (group.hub.y - 6) + '" font-size="9.5" fill="var(--ink)">' + esc(capName(group.node)) + '</text>');
     });
   });
   out.push('<circle cx="' + model.x + '" cy="' + model.y + '" r="6" fill="var(--ink)"/>');
@@ -822,9 +828,9 @@ function showCard(capId, dotId) {
   }
   if (!node) return;
   var rows = [];
-  var title = dot ? (dot.label || ('对象 #' + dot.id)) : (node.label || node.id);
+  var title = dot ? (dot.label || ('对象 #' + dot.id)) : capName(node);
   rows.push('<dt>类别</dt><dd>' + esc(KIND[node.kind] || node.kind) + '</dd>');
-  rows.push('<dt>区块</dt><dd>' + esc(node.zone) + '</dd>');
+  rows.push('<dt>区块</dt><dd>' + esc(zoneName(node.zone)) + '</dd>');
   if (dot) {
     rows.push('<dt>次数</dt><dd>' + fmt(dot.hits) + '</dd>');
     if (dot.failed) rows.push('<dt>失败</dt><dd>' + fmt(dot.failed) + '</dd>');
@@ -909,7 +915,7 @@ function paintMap(data) {
   }).join('') : '<div class="empty">无</div>';
   var caps = (data.nodes || []).slice(0, 9);
   byId('caps').innerHTML = caps.length ? caps.map(function (node) {
-    return '<div class="row click" data-cap-row="' + esc(node.id) + '"><b>' + esc(node.label || node.id) + '</b><span>'
+    return '<div class="row click" data-cap-row="' + esc(node.id) + '"><b>' + esc(capName(node)) + '</b><span>'
       + node.count + ' 个对象 · ' + node.hits + ' 次' + (node.failed ? ' · 失败 ' + node.failed : '') + '</span></div>';
   }).join('') : '<div class="empty">…</div>';
   byId('active').onclick = function (event) {

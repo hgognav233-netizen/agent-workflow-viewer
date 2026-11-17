@@ -617,3 +617,28 @@ test('canvas text is bilingual: Chinese only as the first argument of t() or bes
   const left = rest.split('\n').filter((line) => cjk.test(line.replace(/\/\/.*$/, '')))
   assert.deepEqual(left, [])
 })
+
+test('the board, the canvas and the panel name capabilities and zones the same way', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const client = await readFile(new URL('../client.js', import.meta.url), 'utf8')
+  const { routes } = setup()
+  const host = { host: '127.0.0.1:34567' }
+  const board = await (await routes.get('/agent-workflow/view')
+    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))).text()
+  const canvas = canvasHtml()
+  // client.js is the reference: every t('中文', 'English') pair in its zones and kindLabels.
+  const reference = client.slice(client.indexOf('const zones = ['), client.indexOf('const state = {'))
+  const pairs = [...reference.matchAll(/(\w+): t\('([^']+)', '([^']+)'\)/g)]
+  const kinds = pairs.filter(([, key]) => key !== 'label')
+  assert.equal(kinds.length, 10)
+  for (const [, key, cn, en] of kinds) {
+    assert(board.includes(key + ": '" + cn + "'"), 'board names ' + key + ' differently')
+    assert(canvas.includes(key + ": t('" + cn + "', '" + en + "')"), 'canvas names ' + key + ' differently')
+  }
+  const zoneNames = pairs.filter(([, key]) => key === 'label').map(([, , cn]) => cn)
+  assert.deepEqual(zoneNames, ['网络', '外部服务', '本机进程', '本机磁盘'])
+  for (const name of zoneNames) assert(board.includes("label: '" + name + "'"), 'board zone ' + name)
+  // The board shows the translated kind, never the raw capability id or zone id.
+  assert(!board.includes('node.label || node.id'))
+  assert(!board.includes('esc(node.zone)'))
+})

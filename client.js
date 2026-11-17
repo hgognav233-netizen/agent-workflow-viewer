@@ -16,7 +16,7 @@ window.__ModuleLoader__.load({
     const kindLabels = {
       web: t('网页检索', 'Web tools'), file: t('项目文件', 'Files'), skill: t('技能', 'Skills'),
       shell: t('终端', 'Terminal'), agent: t('子 Agent', 'Subagents'), memory: t('历史会话', 'Session history'),
-      plan: t('计划', 'Planning'), plugin: t('插件', 'Plugins'), tool: t('工具', 'Tools'),
+      plan: t('计划', 'Planning'), plugin: t('插件', 'Plugins'), tool: t('工具', 'Tools'), mcp: t('MCP 服务', 'MCP servers'),
     }
     const state = { open: false, session: null }
     const listeners = new Set()
