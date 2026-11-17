@@ -210,8 +210,22 @@ dialog dd{margin:0;overflow-wrap:anywhere}
   </main>
 </div>
 <dialog id="card" aria-labelledby="card-title"></dialog>
-<script>(${runCanvas.toString()})()</script>
+<script>${fitCamera.toString()};(${runCanvas.toString()})()</script>
 </body></html>`
+}
+
+/**
+ * Camera that frames `box` (world units) inside `view` (viewport pixels).
+ * Returns null while the viewport is too small to measure, so a hidden or
+ * still-collapsed pane cannot pin the zoom at its lower bound.
+ * Serialized into the page next to runCanvas.
+ */
+export function fitCamera(box, view) {
+  const room = { width: view.width - 48, height: view.height - 112 }
+  if (!(room.width >= 120 && room.height >= 60)) return null
+  const scale = Math.min(1, Math.max(.01, room.width / box.width), Math.max(.01, room.height / box.height))
+  return { x: (view.width - box.width * scale) / 2 - box.left * scale,
+    y: 58 + (room.height - box.height * scale) / 2 - box.top * scale, scale }
 }
 
 function runCanvas() {
@@ -446,7 +460,7 @@ function runCanvas() {
     paint()
     if (!position && state.roots.includes(id)) {
       if (state.cameraMoved) revealNode(id)
-      else fit()
+      else state.positioned = fit()
     }
     poll()
   }
@@ -588,18 +602,26 @@ function runCanvas() {
     paintCamera()
   }
 
+  // Returns false when the viewport cannot be measured yet; the camera is left alone.
   function fit() {
     const points = [...state.nodes].map(([id, node]) => ({ ...state.positions.get(id), height: node.offsetHeight, width: node.offsetWidth }))
-    if (!points.length) { state.camera = { x: 0, y: 0, scale: 1 }; paintCamera(); return }
+    if (!points.length) { state.camera = { x: 0, y: 0, scale: 1 }; paintCamera(); return true }
     const left = Math.min(...points.map((point) => point.x))
     const top = Math.min(...points.map((point) => point.y))
     const width = Math.max(...points.map((point) => point.x + point.width)) - left
     const height = Math.max(...points.map((point) => point.y + point.height)) - top
     const available = viewport.clientWidth - (!inspector.hidden && viewport.clientWidth > 700 ? inspector.offsetWidth + 24 : 0)
-    const scale = Math.min(1, Math.max(.01, (available - 48) / width), Math.max(.01, (viewport.clientHeight - 112) / height))
-    state.camera = { x: (available - width * scale) / 2 - left * scale,
-      y: 58 + (viewport.clientHeight - 112 - height * scale) / 2 - top * scale, scale }
+    const camera = fitCamera({ left, top, width, height }, { width: available, height: viewport.clientHeight })
+    if (!camera) return false
+    state.camera = camera
     paintCamera()
+    return true
+  }
+  // Fit again when the viewport gets its real size, until the user moves the camera.
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => {
+      if (!state.cameraMoved && state.roots.length) state.positioned = fit()
+    }).observe(viewport)
   }
 
   function revealNode(id) {
@@ -768,7 +790,7 @@ function runCanvas() {
         <button type="button" data-key="cost" data-cost>${esc(cost(root))} 估算${root.unpriced && root.priced ? '（部分）' : ''}</button></span>` : '')
     }
     paintPositions()
-    if (!state.positioned && state.roots.length && viewport.clientWidth) { fit(); state.positioned = true }
+    if (!state.positioned && state.roots.length) state.positioned = fit()
     inspector.hidden = !state.inspected
     if (state.inspected) {
       const root = state.data?.roots.find((entry) => entry.id === state.inspected)
@@ -1139,7 +1161,7 @@ function runCanvas() {
         state.data = preserveDisplay(data, mode)
         state.version = data.version || ''
         paint()
-        if (firstGraphs && !state.cameraMoved) fit()
+        if (firstGraphs && !state.cameraMoved) state.positioned = fit()
       }
       if (status.textContent !== '实时更新') status.textContent = '实时更新'
       status.classList.remove('error')

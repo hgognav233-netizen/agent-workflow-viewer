@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { apply } from '../index.js'
+import { canvasHtml, fitCamera } from '../canvas.js'
 
 const root = 'root'
 const child = 'child'
@@ -544,4 +545,38 @@ test('an unpriced model reports spend as unknown instead of a number', async () 
   assert.equal(map.spend.unpriced, 1)
   assert.equal(map.spend.usd, 0)
   assert.equal(map.topSteps.length, 0)
+})
+
+const inlineScripts = (html) => [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1])
+
+test('canvas fit waits for a measurable viewport instead of pinning the zoom at 1%', () => {
+  const box = { left: 0, top: 0, width: 710, height: 400 }
+  // A hidden or still-collapsed pane: no camera, so the caller keeps waiting.
+  assert.equal(fitCamera(box, { width: 0, height: 0 }), null)
+  assert.equal(fitCamera(box, { width: 492, height: 96 }), null)
+  assert.equal(fitCamera(box, { width: 100, height: 800 }), null)
+  const camera = fitCamera(box, { width: 1020, height: 796 })
+  assert.equal(camera.scale, 1)
+  assert.equal(camera.x, 155)
+  const tight = fitCamera(box, { width: 403, height: 796 })
+  assert.equal(tight.scale, .5)
+  assert(fitCamera({ ...box, width: 7100 }, { width: 1020, height: 796 }).scale > .1)
+  // The page carries the helper, retries the first fit, and follows viewport resizes.
+  const html = canvasHtml()
+  assert(html.includes('function fitCamera('))
+  assert(html.includes('ResizeObserver'))
+  assert(html.includes('state.positioned = fit()'))
+  assert(!html.includes('state.positioned = true'))
+})
+
+test('inline page scripts parse', async () => {
+  const { routes } = setup()
+  const host = { host: '127.0.0.1:34567' }
+  const board = await routes.get('/agent-workflow/view')
+    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))
+  for (const html of [canvasHtml(), await board.text()]) {
+    const scripts = inlineScripts(html)
+    assert(scripts.length > 0)
+    for (const script of scripts) assert.doesNotThrow(() => new Function(script))
+  }
 })
