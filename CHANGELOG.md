@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Fixes the canvas opening at 1% zoom with nothing visible. The first fit now waits until the viewport has a usable size, and the canvas fits again when the viewport is resized, until you move the camera yourself.
+- The canvas follows the browser language: Simplified Chinese when it is Chinese, English otherwise, including number, date, and currency formats.
+- The board, the canvas, and the conversation panel use the same names for capabilities and zones. The board shows 网络 / 外部服务 instead of 云端 / 外部程序, and capability names instead of internal ids such as `web` or `shell`.
+- The colour scheme is stored under one key, `awv.theme`, shared by the panel, the board, and the canvas. A choice saved under the earlier keys is kept.
+- A collapsed child task on the canvas shows only its state and timer on a single line.
+
 ## 0.3.0
 
 - Adds an application-level page: a workflow icon in the left panel list, after Plugins, opens a canvas that is not bound to the open conversation.
