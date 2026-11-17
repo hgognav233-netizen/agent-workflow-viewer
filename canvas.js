@@ -49,7 +49,9 @@ h1{font-size:16px;letter-spacing:-.015em}
 .relations .relation{fill:none;stroke:var(--ink);opacity:.55;stroke-dasharray:3 4;marker-end:url(#awv-arrow)}
 .node{position:absolute;width:710px;user-select:none}
 .node.branch-preview{width:245px}
-.node.branch-preview .node-head{min-height:25px;padding-left:14px}
+.node.branch-preview .node-head{min-height:25px;padding-left:14px;white-space:nowrap}
+.node.branch-preview .node-head .phase{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.node.branch-preview .node-head .phase::before{display:inline-block;margin-right:5px}
 .node.branch-preview .node-foot{min-height:0;padding:0 14px}
 .node-head{min-height:32px;display:flex;align-items:center;gap:10px;padding:4px 14px;font-size:11px;color:var(--mute)}
 .node-head .subtle,.node-head .phase{font-size:inherit}
@@ -787,7 +789,10 @@ function runCanvas() {
       node.classList.toggle('branch-preview', preview)
       node.setAttribute('aria-label', name)
       const liveTool = root?.active?.[0]?.name
-      update(node.querySelector('.node-head'), `<span class="phase${busy ? ' busy' : ''}">${status}${liveTool ? ' · ' + esc(liveTool) : ''}${busy ? '<span data-since="' + esc(root?.active?.[0]?.time || root?.phase?.since || '') + '"></span>' : ''}</span>
+      const clock = busy ? '<span data-since="' + esc(root?.active?.[0]?.time || root?.phase?.since || '') + '"></span>' : ''
+      // A collapsed child task keeps only its state and timer, on one line.
+      update(node.querySelector('.node-head'), preview ? `<span class="phase${busy ? ' busy' : ''}">${status}${clock}</span>`
+        : `<span class="phase${busy ? ' busy' : ''}">${status}${liveTool ? ' · ' + esc(liveTool) : ''}${clock}</span>
         <span class="subtle">${esc([session?.project, root?.model].filter(Boolean).join(' · '))}</span>
         ${state.expanded.has(id) ? '<button type="button" data-key="collapse" data-collapse>' + t('收起子任务', 'Collapse child task') + '</button>' : ''}`)
       const plot = node.querySelector('.plot')

@@ -663,3 +663,14 @@ test('the panel, the board and the canvas share one colour-scheme key', async ()
     assert(shared >= 0 && legacy > shared)
   }
 })
+
+test('a collapsed child task header stays on one line with only state and timer', () => {
+  const html = canvasHtml()
+  assert(html.includes('.node.branch-preview .node-head{min-height:25px;padding-left:14px;white-space:nowrap}'))
+  assert(html.includes('.node.branch-preview .node-head .phase{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}'))
+  // The collapsed branch renders the phase and clock only: no tool, project or model.
+  const collapsed = html.slice(html.indexOf("update(node.querySelector('.node-head'), preview ? `"))
+  const line = collapsed.slice(0, collapsed.indexOf('\n'))
+  assert(line.includes('${status}${clock}'))
+  assert(!/liveTool|project|model/.test(line))
+})
