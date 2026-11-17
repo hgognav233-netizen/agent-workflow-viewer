@@ -659,7 +659,7 @@ window.__ModuleLoader__.load({
       }
       const [full, setFull] = useState(() => { try { return localStorage.getItem('awv.full') === '1' } catch { return false } })
       useEffect(() => { try { localStorage.setItem('awv.full', full ? '1' : '0') } catch { /* storage unavailable */ } }, [full])
-      const [theme, setTheme] = useState(() => { try { return localStorage.getItem('awv.theme') || 'system' } catch { return 'system' } })
+      const [theme, setTheme] = useState(() => { try { return localStorage.getItem('awv.theme') || localStorage.getItem('awv-theme') || 'system' } catch { return 'system' } })
       const [osDark, setOsDark] = useState(() => Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
       useEffect(() => {
         const query = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null

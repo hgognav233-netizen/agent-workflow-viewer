@@ -627,7 +627,8 @@ var THEMES = ['system', 'light', 'dark'];
 var ICONS = { system: '◐', light: '☀', dark: '☾' };
 var NAMES = { system: '跟随系统', light: '浅色', dark: '深色' };
 var theme = 'system';
-try { theme = localStorage.getItem('awv-theme') || localStorage.getItem('awv-board-theme') || 'system' } catch (error) { theme = 'system' }
+// One key for the panel, the board and the canvas; older keys are fallbacks.
+try { theme = localStorage.getItem('awv.theme') || localStorage.getItem('awv-theme') || localStorage.getItem('awv-board-theme') || 'system' } catch (error) { theme = 'system' }
 function applyTheme(value) {
   theme = THEMES.indexOf(value) < 0 ? 'system' : value;
   var root = document.documentElement;
@@ -635,7 +636,7 @@ function applyTheme(value) {
   else root.setAttribute('data-theme', theme);
   byId('theme').textContent = ICONS[theme];
   byId('theme').title = '配色：' + NAMES[theme];
-  try { localStorage.setItem('awv-theme', theme) } catch (error) { /* file: or private mode */ }
+  try { localStorage.setItem('awv.theme', theme) } catch (error) { /* file: or private mode */ }
 }
 applyTheme(theme);
 byId('theme').addEventListener('click', function () {

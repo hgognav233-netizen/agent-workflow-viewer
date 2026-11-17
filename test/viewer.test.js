@@ -642,3 +642,24 @@ test('the board, the canvas and the panel name capabilities and zones the same w
   assert(!board.includes('node.label || node.id'))
   assert(!board.includes('esc(node.zone)'))
 })
+
+test('the panel, the board and the canvas share one colour-scheme key', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const client = await readFile(new URL('../client.js', import.meta.url), 'utf8')
+  const { routes } = setup()
+  const host = { host: '127.0.0.1:34567' }
+  const board = await (await routes.get('/agent-workflow/view')
+    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))).text()
+  const canvas = canvasHtml()
+  // Everyone writes awv.theme and nothing else.
+  assert(client.includes("localStorage.setItem('awv.theme', theme)"))
+  assert(board.includes("localStorage.setItem('awv.theme', theme)"))
+  assert(canvas.includes("write('awv.theme', theme)"))
+  for (const source of [client, board, canvas]) {
+    assert(!/(setItem|write)\('awv-(board-)?theme'/.test(source))
+    // The shared key is read first; the pre-0.3.1 key keeps an earlier choice.
+    const shared = source.search(/(getItem|read)\('awv\.theme'\)/)
+    const legacy = source.search(/(getItem|read)\('awv-theme'\)/)
+    assert(shared >= 0 && legacy > shared)
+  }
+})

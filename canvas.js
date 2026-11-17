@@ -299,13 +299,14 @@ function runCanvas() {
     camera: { x: 0, y: 0, scale: 1 }, drag: null, positioned: false, cameraMoved: false,
   }
   state.manualPositions = new Set(state.positions.keys())
-  let theme = read('awv-theme')
+  // One key for the panel, the board and the canvas; the old canvas key is a fallback.
+  let theme = read('awv.theme') || read('awv-theme')
   function setTheme(value) {
     theme = Object.hasOwn(themeNames, value) ? value : 'system'
     document.documentElement.dataset.theme = theme
     byId('theme').textContent = themeNames[theme]
     byId('theme').setAttribute('aria-label', t('配色', 'Colour scheme') + ' · ' + themeNames[theme])
-    write('awv-theme', theme)
+    write('awv.theme', theme)
   }
   setTheme(theme)
   byId('theme').onclick = () => {
