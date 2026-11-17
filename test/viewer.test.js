@@ -580,3 +580,40 @@ test('inline page scripts parse', async () => {
     for (const script of scripts) assert.doesNotThrow(() => new Function(script))
   }
 })
+
+test('canvas text is bilingual: Chinese only as the first argument of t() or beside an English twin', () => {
+  const cjk = /[㐀-鿿]/
+  const html = canvasHtml()
+  const start = html.indexOf('<script>')
+  // Static template: every Chinese text node or attribute carries its English replacement.
+  for (const [, , attrs, text] of html.slice(0, start).matchAll(/<([a-z0-9]+)([^>]*)>([^<]*)/g)) {
+    if (cjk.test(text)) assert(attrs.includes(' data-en="'), 'no English for text: ' + text.trim())
+    for (const [, name, value] of attrs.matchAll(/([\w-]+)="([^"]*)"/g)) {
+      if (cjk.test(value)) assert(attrs.includes(' data-en-' + name + '="'), 'no English for ' + name + ': ' + value)
+    }
+  }
+  assert(html.includes('navigator.language'))
+  // Script: blank the first argument of every t(...) call; nothing Chinese may remain.
+  const script = html.slice(start)
+  let rest = ''
+  let at = 0
+  for (const match of script.matchAll(/(?<![\w.$])t\(/g)) {
+    if (match.index < at) continue
+    let depth = 0
+    let quote = ''
+    let end = match.index + 2
+    for (; end < script.length; end++) {
+      const char = script[end]
+      if (quote) { if (char === '\\') end++; else if (char === quote) quote = ''; continue }
+      if (char === "'" || char === '"') quote = char
+      else if (char === '(') depth++
+      else if (char === ')') { if (!depth) break; depth-- }
+      else if (char === ',' && !depth) break
+    }
+    rest += script.slice(at, match.index + 2)
+    at = end
+  }
+  rest += script.slice(at)
+  const left = rest.split('\n').filter((line) => cjk.test(line.replace(/\/\/.*$/, '')))
+  assert.deepEqual(left, [])
+})

@@ -2,7 +2,7 @@
 export function canvasHtml() {
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>工作流画布</title>
+<title data-en="Workflow canvas">工作流画布</title>
 <style>
 :root{color-scheme:light dark;--ink:light-dark(#191919,#f1f1f1);--paper:light-dark(#fff,#1e1e1e);--bg:light-dark(#f4f4f4,#151515);--soft:light-dark(#f6f6f6,#282828);--line:light-dark(#d9d9d9,#444);--mute:light-dark(#555,#b5b5b5);--brand:var(--ink);--active:light-dark(#ebebeb,#333);--bad:var(--ink);--warn:var(--active)}
 :root[data-theme=light]{color-scheme:light}
@@ -155,53 +155,53 @@ dialog dd{margin:0;overflow-wrap:anywhere}
 </style></head>
 <body>
 <header class="bar">
-  <h1>工作流画布</h1>
-  <button type="button" id="picker" aria-controls="rail" aria-expanded="true">会话列表</button>
-  <span id="status" class="status" role="status">正在连接…</span>
-  <label class="currency">币种
-    <select id="currency" aria-label="费用币种"><option value="USD">美元 USD</option><option value="CNY">人民币 CNY</option></select>
+  <h1 data-en="Workflow canvas">工作流画布</h1>
+  <button type="button" id="picker" aria-controls="rail" aria-expanded="true" data-en="Sessions">会话列表</button>
+  <span id="status" class="status" role="status" data-en="Connecting…">正在连接…</span>
+  <label class="currency"><span data-en="Currency">币种</span>
+    <select id="currency" aria-label="费用币种" data-en-aria-label="Cost currency"><option value="USD" data-en="USD">美元 USD</option><option value="CNY" data-en="CNY">人民币 CNY</option></select>
   </label>
-  <a class="subtle" id="fx-rate" title="欧洲央行参考汇率，2026-11-13" href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-cny.en.html"
+  <a class="subtle" id="fx-rate" title="欧洲央行参考汇率，2026-11-13" data-en-title="ECB reference rate, 2026-11-13" href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-cny.en.html"
     target="_blank" rel="noopener noreferrer" hidden></a>
-  <button type="button" id="theme">跟随系统</button>
+  <button type="button" id="theme" data-en="Follow system">跟随系统</button>
 </header>
 <div class="shell">
   <aside class="rail" id="rail" aria-labelledby="sessions-heading">
-    <h2 id="sessions-heading">会话 <span class="subtle" id="count"></span></h2>
-    <input id="filter" type="search" placeholder="搜索会话、项目或模型" aria-label="搜索会话、项目或模型">
-    <div class="filters" id="filters" aria-label="会话筛选">
-      <button type="button" data-filter="all" aria-pressed="true">全部</button>
-      <button type="button" data-filter="running" aria-pressed="false">运行中</button>
-      <button type="button" data-filter="selected" aria-pressed="false">已选</button>
+    <h2 id="sessions-heading"><span data-en="Sessions">会话</span> <span class="subtle" id="count"></span></h2>
+    <input id="filter" type="search" placeholder="搜索会话、项目或模型" data-en-placeholder="Search sessions, projects or models" aria-label="搜索会话、项目或模型" data-en-aria-label="Search sessions, projects or models">
+    <div class="filters" id="filters" aria-label="会话筛选" data-en-aria-label="Session filter">
+      <button type="button" data-filter="all" aria-pressed="true" data-en="All">全部</button>
+      <button type="button" data-filter="running" aria-pressed="false" data-en="Running">运行中</button>
+      <button type="button" data-filter="selected" aria-pressed="false" data-en="Selected">已选</button>
     </div>
     <div class="list" id="list"></div>
   </aside>
-  <main class="workspace" aria-label="会话画布">
-    <div class="viewport" id="viewport" tabindex="0" aria-label="拖动空白处平移，滚轮缩放，按方向键移动">
+  <main class="workspace" aria-label="会话画布" data-en-aria-label="Session canvas">
+    <div class="viewport" id="viewport" tabindex="0" aria-label="拖动空白处平移，滚轮缩放，按方向键移动" data-en-aria-label="Drag the background to pan, scroll to zoom, use arrow keys to move">
       <div class="world" id="world"><svg class="relations" aria-hidden="true"><defs>
         <marker id="awv-arrow" viewBox="0 0 7 7" refX="7" refY="3.5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto">
           <path d="M0 0 L7 3.5 L0 7 L2 3.5 Z" fill="var(--ink)"/>
         </marker>
       </defs><g id="relations"></g></svg><div id="nodes"></div></div>
     </div>
-    <p class="canvas-empty" id="empty">正在读取会话…</p>
-    <nav class="graph-view" id="graph-view" aria-label="工作流显示">
-      <button type="button" data-mode="overview" aria-pressed="true">全览</button>
-      <button type="button" data-mode="running" aria-pressed="false">执行中</button>
-      <button type="button" data-mode="failed" aria-pressed="false">故障</button>
-      <button type="button" data-mode="cost" aria-pressed="false">费用</button>
+    <p class="canvas-empty" id="empty" data-en="Loading sessions…">正在读取会话…</p>
+    <nav class="graph-view" id="graph-view" aria-label="工作流显示" data-en-aria-label="Workflow display">
+      <button type="button" data-mode="overview" aria-pressed="true" data-en="Overview">全览</button>
+      <button type="button" data-mode="running" aria-pressed="false" data-en="Running">执行中</button>
+      <button type="button" data-mode="failed" aria-pressed="false" data-en="Failures">故障</button>
+      <button type="button" data-mode="cost" aria-pressed="false" data-en="Spend">费用</button>
       <span class="subtle" id="omitted-branches" hidden></span>
     </nav>
-    <div class="legend" aria-hidden="true"><span><i class="running"></i>执行中</span><span><i class="failure"></i>曾失败</span><span><i></i>历史调用</span></div>
-    <div class="tools" aria-label="画布视图">
-      <button type="button" id="zoom-out" aria-label="缩小">−</button>
-      <output id="zoom-value" aria-label="缩放比例">100%</output>
-      <button type="button" id="zoom-in" aria-label="放大">+</button>
-      <button type="button" id="fit">适应画布</button>
+    <div class="legend" aria-hidden="true"><span><i class="running"></i><span data-en="Running">执行中</span></span><span><i class="failure"></i><span data-en="Failed at least once">曾失败</span></span><span><i></i><span data-en="Past calls">历史调用</span></span></div>
+    <div class="tools" aria-label="画布视图" data-en-aria-label="Canvas view">
+      <button type="button" id="zoom-out" aria-label="缩小" data-en-aria-label="Zoom out">−</button>
+      <output id="zoom-value" aria-label="缩放比例" data-en-aria-label="Zoom level">100%</output>
+      <button type="button" id="zoom-in" aria-label="放大" data-en-aria-label="Zoom in">+</button>
+      <button type="button" id="fit" data-en="Fit canvas">适应画布</button>
     </div>
-    <aside class="panel inspector" id="inspector" aria-label="会话详情" hidden>
+    <aside class="panel inspector" id="inspector" aria-label="会话详情" data-en-aria-label="Session details" hidden>
       <header class="panel-head"></header><div class="panel-content"></div>
-      <section class="selection" hidden aria-label="所选图节点"></section>
+      <section class="selection" hidden aria-label="所选图节点" data-en-aria-label="Selected graph node"></section>
       <details class="calls" hidden><summary></summary><div class="activity"></div></details>
       <details class="failures" hidden><summary></summary><div class="activity"></div></details>
       <details class="spend" hidden><summary></summary><div class="activity"></div></details>
@@ -237,15 +237,28 @@ function runCanvas() {
   const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (char) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]
   ))
-  const number = new Intl.NumberFormat('zh-CN')
+  // The canvas is its own page, so the browser language decides (same t() as client.js).
+  const zh = (navigator.language || '').toLowerCase().startsWith('zh')
+  const t = (cn, en) => zh ? cn : en
+  if (!zh) {
+    // The template is written in Chinese; swap in the English carried on each element.
+    document.documentElement.lang = 'en'
+    document.querySelectorAll('[data-en]').forEach((element) => { element.textContent = element.dataset.en })
+    for (const name of ['aria-label', 'title', 'placeholder']) {
+      document.querySelectorAll('[data-en-' + name + ']').forEach((element) => element.setAttribute(name, element.getAttribute('data-en-' + name)))
+    }
+  }
+  const locale = zh ? 'zh-CN' : 'en-US'
+  const number = new Intl.NumberFormat(locale)
   // ECB reference quotes for 2026-11-13, both per euro.
   const yuanPerDollar = 7.3738 / 1.1052
   const money = Object.fromEntries(['USD', 'CNY'].map((code) => [code,
-    new Intl.NumberFormat(code === 'USD' ? 'en-US' : 'zh-CN', { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+    new Intl.NumberFormat(code === 'USD' ? 'en-US' : locale, { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 4 }),
   ]))
-  const date = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const date = new Intl.DateTimeFormat(locale, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', ...(zh ? {} : { hourCycle: 'h23' }) })
   const formatDate = (value) => value && Number.isFinite(new Date(value).getTime()) ? date.format(new Date(value)) : ''
   const fmt = (n) => number.format(n ?? 0)
+  const times = (n) => t(fmt(n) + ' 次', fmt(n) + '×')
   const cost = (row) => {
     if (!row.priced) return '—'
     const amount = row.usd * (currency === 'CNY' ? yuanPerDollar : 1)
@@ -253,7 +266,7 @@ function runCanvas() {
   }
   const selectedKey = 'awv.canvas.roots'
   const positionsKey = 'awv.canvas.graphPositions'
-  const themeNames = { system: '跟随系统', light: '浅色', dark: '深色' }
+  const themeNames = { system: t('跟随系统', 'Follow system'), light: t('浅色', 'Light'), dark: t('深色', 'Dark') }
   const read = (key) => {
     try { return localStorage.getItem(key) || '' } catch { return '' }
   }
@@ -291,7 +304,7 @@ function runCanvas() {
     theme = Object.hasOwn(themeNames, value) ? value : 'system'
     document.documentElement.dataset.theme = theme
     byId('theme').textContent = themeNames[theme]
-    byId('theme').setAttribute('aria-label', '配色 · ' + themeNames[theme])
+    byId('theme').setAttribute('aria-label', t('配色', 'Colour scheme') + ' · ' + themeNames[theme])
     write('awv-theme', theme)
   }
   setTheme(theme)
@@ -310,14 +323,15 @@ function runCanvas() {
 
   function sessionName(session) {
     if (session.label) return session.label
-    const name = session.parent ? '子 Agent' : '会话'
+    const name = session.parent ? t('子 Agent', 'Subagent') : t('会话', 'Session')
     const started = formatDate(session.created)
     return name + ' · ' + (started ? [session.project, started].filter(Boolean).join(' ') : session.id.slice(-8))
   }
 
   const capabilityLabels = {
-    web: '网页检索', file: '项目文件', skill: '技能', shell: '终端', agent: '子 Agent',
-    memory: '历史会话', plan: '计划', plugin: '插件', tool: '工具', mcp: 'MCP 服务',
+    web: t('网页检索', 'Web tools'), file: t('项目文件', 'Files'), skill: t('技能', 'Skills'),
+    shell: t('终端', 'Terminal'), agent: t('子 Agent', 'Subagents'), memory: t('历史会话', 'Session history'),
+    plan: t('计划', 'Planning'), plugin: t('插件', 'Plugins'), tool: t('工具', 'Tools'), mcp: t('MCP 服务', 'MCP servers'),
   }
   const capabilityName = (node) => node.label || capabilityLabels[node.kind] || node.id
 
@@ -405,7 +419,7 @@ function runCanvas() {
     const list = byId('list')
     const existing = new Map([...list.querySelectorAll('[data-toggle]')].map((button) => [button.dataset.toggle, button]))
     if (!rows.length) {
-      update(list, `<p class="list-note">${state.data ? '没有符合条件的会话' : '正在读取会话…'}</p>`)
+      update(list, `<p class="list-note">${state.data ? t('没有符合条件的会话', 'No matching sessions') : t('正在读取会话…', 'Loading sessions…')}</p>`)
       return
     }
     list.rendered = null
@@ -414,7 +428,7 @@ function runCanvas() {
       const chosen = state.roots.includes(row.id)
       const name = sessionName(row)
       const meta = [
-        row.running ? '<span class="busy">运行中</span>' : '',
+        row.running ? '<span class="busy">' + t('运行中', 'Running') + '</span>' : '',
         row.project ? esc(row.project) : '',
         formatDate(row.created),
       ].filter(Boolean).join(' · ')
@@ -432,7 +446,7 @@ function runCanvas() {
       button.setAttribute('aria-label', name)
       button.title = name
       update(button, `
-        <span><b>${esc(name)}</b><small>${meta || (row.ready ? fmt(row.calls) + ' 次调用' : '读取中…')}</small></span>
+        <span><b>${esc(name)}</b><small>${meta || (row.ready ? t(fmt(row.calls) + ' 次调用', fmt(row.calls) + ' calls') : t('读取中…', 'Loading…'))}</small></span>
         <span class="mark" aria-hidden="true">${chosen ? '✓' : '+'}</span>`)
       if (list.children[index] !== button) list.insertBefore(button, list.children[index] || null)
     })
@@ -528,12 +542,13 @@ function runCanvas() {
 
   function paintPanel(panel, id, root, session) {
     const name = sessionName(session || { id })
-    const status = root?.running ? '执行工具' : root?.phase?.name === 'thinking' ? '思考中' : session?.running ? '运行中' : '空闲'
-    const busy = status !== '空闲'
+    const busy = Boolean(root?.running || root?.phase?.name === 'thinking' || session?.running)
+    const status = root?.running ? t('执行工具', 'Running tool') : root?.phase?.name === 'thinking' ? t('思考中', 'Thinking')
+      : session?.running ? t('运行中', 'Running') : t('空闲', 'Idle')
     const meta = [session?.project, root?.model, formatDate(session?.created)].filter(Boolean).join(' · ')
     const head = `<div class="panel-title">${root?.ready ? '<span class="phase' + (busy ? ' busy' : '') + '">' + status + '</span>' : ''}
       <h3>${esc(name)}</h3>${meta ? '<p class="subtle">' + esc(meta) + '</p>' : ''}</div>
-      <button type="button" class="remove" data-key="close" data-close-inspector aria-label="关闭会话详情">×</button>`
+      <button type="button" class="remove" data-key="close" data-close-inspector aria-label="${t('关闭会话详情', 'Close session details')}">×</button>`
     update(panel.querySelector('.panel-head'), head)
     const content = panel.querySelector('.panel-content')
     const activity = panel.querySelector('.calls')
@@ -546,40 +561,40 @@ function runCanvas() {
     spend.hidden = !root?.topSteps?.length
     if (!root?.ready) {
       const missing = state.data && !session
-      update(content, `<p class="subtle">${missing ? '此会话已不可用，可从画布移除。' : '正在读取会话日志…'}</p>`)
+      update(content, `<p class="subtle">${missing ? t('此会话已不可用，可从画布移除。', 'This session is no longer available. Remove it from the canvas.') : t('正在读取会话日志…', 'Loading the session log…')}</p>`)
       return
     }
     const failures = fmt(root.failures)
-    const failValue = root.failures ? recordLink(id, { filter: 'failed' }, failures, 'data-key="failures" aria-label="查看 ' + failures + ' 条失败记录"') : failures
+    const failValue = root.failures ? recordLink(id, { filter: 'failed' }, failures, 'data-key="failures" aria-label="' + t('查看 ' + failures + ' 条失败记录', 'Open ' + failures + ' failure records') + '"') : failures
     const active = root.active || []
     const calls = active.map((call) => recordLink(id, { at: call.seq }, '<b>' + esc(call.name) + '</b><span>' + esc(call.summary || '') + '</span>',
       'data-key="call-' + call.seq + '" title="' + esc(call.summary || call.name) + '"')).join('')
     update(content, `<dl class="metrics">
-      <div class="metric"><dt>工具调用</dt><dd>${fmt(root.calls)}</dd></div>
-      <div class="metric ${root.failures ? 'bad' : ''}"><dt>失败</dt><dd>${failValue}</dd></div>
-      <div class="metric"><dt>执行中</dt><dd>${fmt(root.running)}</dd></div>
-      <div class="metric"><dt>${root.unpriced && root.priced ? '已计价估算' : '估算费用'}</dt><dd>${esc(cost(root))}</dd></div>
+      <div class="metric"><dt>${t('工具调用', 'Tool calls')}</dt><dd>${fmt(root.calls)}</dd></div>
+      <div class="metric ${root.failures ? 'bad' : ''}"><dt>${t('失败', 'Failures')}</dt><dd>${failValue}</dd></div>
+      <div class="metric"><dt>${t('执行中', 'Running')}</dt><dd>${fmt(root.running)}</dd></div>
+      <div class="metric"><dt>${root.unpriced && root.priced ? t('已计价估算', 'Priced spend (est.)') : t('估算费用', 'Spend (est.)')}</dt><dd>${esc(cost(root))}</dd></div>
       </dl>
-      ${external ? '' : '<div class="actions" style="margin-top:10px">' + recordLink(id, {}, '查看会话详情 ↗', 'class="button" data-key="view"')
-        + recordLink(id, { filter: 'thinking' }, '查看思考记录 ↗', 'class="button" data-key="thinking"') + '</div>'}`)
-    activity.querySelector('summary').textContent = '正在执行 · ' + fmt(root.running)
+      ${external ? '' : '<div class="actions" style="margin-top:10px">' + recordLink(id, {}, t('查看会话详情', 'Open session details') + ' ↗', 'class="button" data-key="view"')
+        + recordLink(id, { filter: 'thinking' }, t('查看思考记录', 'Open thinking records') + ' ↗', 'class="button" data-key="thinking"') + '</div>'}`)
+    activity.querySelector('summary').textContent = t('正在执行', 'Running now') + ' · ' + fmt(root.running)
     if (activity.open) update(activity.querySelector('.activity'), calls
-      + (root.running > active.length ? '<span class="subtle">另有 ' + fmt(root.running - active.length) + ' 项执行中</span>' : ''))
-    failuresList.querySelector('summary').textContent = '近期失败 · ' + fmt(root.recentFailures?.length)
+      + (root.running > active.length ? '<span class="subtle">' + t('另有 ' + fmt(root.running - active.length) + ' 项执行中', fmt(root.running - active.length) + ' more running') + '</span>' : ''))
+    failuresList.querySelector('summary').textContent = t('近期失败', 'Recent failures') + ' · ' + fmt(root.recentFailures?.length)
     if (!failuresList.hidden && failuresList.open) update(failuresList.querySelector('.activity'), root.recentFailures.map((entry) =>
-      recordLink(id, { at: entry.seq, filter: 'failed' }, '<b>' + esc(entry.name || '工具') + '</b><span>' + esc(entry.target || entry.error) + '</span>',
+      recordLink(id, { at: entry.seq, filter: 'failed' }, '<b>' + esc(entry.name || t('工具', 'Tool')) + '</b><span>' + esc(entry.target || entry.error) + '</span>',
         'data-key="failed-' + entry.seq + '" title="' + esc(entry.error) + '"')).join(''))
-    spend.querySelector('summary').textContent = '费用最高的模型请求'
+    spend.querySelector('summary').textContent = t('费用最高的模型请求', 'Most expensive model requests')
     if (!spend.hidden && spend.open) update(spend.querySelector('.activity'), root.topSteps.map((step) =>
-      recordLink(id, { at: step.seq }, '<b>' + esc(cost(step)) + '</b><span>' + fmt(step.prompt) + ' 输入 / ' + fmt(step.output) + ' 输出</span>',
+      recordLink(id, { at: step.seq }, '<b>' + esc(cost(step)) + '</b><span>' + fmt(step.prompt) + t(' 输入 / ', ' in / ') + fmt(step.output) + t(' 输出', ' out') + '</span>',
         'data-key="spend-' + step.seq + '"')).join(''))
-    agents.querySelector('summary').textContent = '子 Agent · ' + fmt(root.agents?.length)
+    agents.querySelector('summary').textContent = t('子 Agent', 'Subagents') + ' · ' + fmt(root.agents?.length)
     if (agents.open) {
       const ordered = (root.agents || []).slice().sort((a, b) => Number(b.running) - Number(a.running))
       update(agents.querySelector('.agent-list'), ordered.map((agent) => {
-        const label = agent.label || '子 Agent · ' + agent.id.slice(-8)
+        const label = agent.label || t('子 Agent', 'Subagent') + ' · ' + agent.id.slice(-8)
         return `<button type="button" class="agent-row" data-key="${esc(agent.id)}" data-agent="${esc(agent.id)}"
-          title="${esc(label)}"><b>${esc(label)}</b><span class="${agent.running ? 'busy' : ''}">${agent.running ? '运行中' : '空闲'}${agent.calls == null ? '' : ' · ' + fmt(agent.calls) + ' 次'}</span></button>`
+          title="${esc(label)}"><b>${esc(label)}</b><span class="${agent.running ? 'busy' : ''}">${agent.running ? t('运行中', 'Running') : t('空闲', 'Idle')}${agent.calls == null ? '' : ' · ' + t(fmt(agent.calls) + ' 次', fmt(agent.calls) + ' calls')}</span></button>`
       }).join(''))
     }
     paintSelection(root)
@@ -734,13 +749,13 @@ function runCanvas() {
 
   function paint() {
     paintRail()
-    byId('count').textContent = state.roots.length ? '· 已选 ' + fmt(state.roots.length) : ''
+    byId('count').textContent = state.roots.length ? '· ' + t('已选 ' + fmt(state.roots.length), fmt(state.roots.length) + ' selected') : ''
     byId('empty').hidden = state.roots.length > 0
-    byId('empty').textContent = state.data ? '从会话列表选择要监看的会话' : '正在读取会话…'
+    byId('empty').textContent = state.data ? t('从会话列表选择要监看的会话', 'Select sessions to watch from the session list') : t('正在读取会话…', 'Loading sessions…')
     const visible = new Set(visibleIds())
     const omitted = state.data?.omittedBranches || 0
     byId('omitted-branches').hidden = !omitted
-    byId('omitted-branches').textContent = fmt(omitted) + ' 个子任务分支超出显示范围'
+    byId('omitted-branches').textContent = t(fmt(omitted) + ' 个子任务分支超出显示范围', fmt(omitted) + ' child task branches are beyond the display limit')
     for (const [id, node] of state.nodes) {
       if (visible.has(id)) continue
       if (node.contains(document.activeElement)) viewport.focus({ preventScroll: true })
@@ -762,8 +777,9 @@ function runCanvas() {
         placeNode(id, session?.parent)
         byId('nodes').append(node)
       }
-      const status = !root?.ready ? (state.data && !session ? '会话不可用' : '读取中')
-        : root.running ? '执行工具' : root.phase?.name === 'thinking' ? '思考中' : session?.running ? '运行中' : '空闲'
+      const status = !root?.ready ? (state.data && !session ? t('会话不可用', 'Session unavailable') : t('读取中', 'Loading'))
+        : root.running ? t('执行工具', 'Running tool') : root.phase?.name === 'thinking' ? t('思考中', 'Thinking')
+          : session?.running ? t('运行中', 'Running') : t('空闲', 'Idle')
       const busy = Boolean(root?.running || session?.running)
       const name = sessionName(session || { id })
       const preview = Boolean(session?.parent && visible.has(session.parent) && !state.expanded.has(id))
@@ -772,7 +788,7 @@ function runCanvas() {
       const liveTool = root?.active?.[0]?.name
       update(node.querySelector('.node-head'), `<span class="phase${busy ? ' busy' : ''}">${status}${liveTool ? ' · ' + esc(liveTool) : ''}${busy ? '<span data-since="' + esc(root?.active?.[0]?.time || root?.phase?.since || '') + '"></span>' : ''}</span>
         <span class="subtle">${esc([session?.project, root?.model].filter(Boolean).join(' · '))}</span>
-        ${state.expanded.has(id) ? '<button type="button" data-key="collapse" data-collapse>收起子任务</button>' : ''}`)
+        ${state.expanded.has(id) ? '<button type="button" data-key="collapse" data-collapse>' + t('收起子任务', 'Collapse child task') + '</button>' : ''}`)
       const plot = node.querySelector('.plot')
       const inspected = id === state.inspected
       const settings = [name, preview, busy, status, state.mode, currency, inspected, inspected ? state.selection : null]
@@ -785,9 +801,9 @@ function runCanvas() {
         plot.hiddenCount = graph.hidden
       }
       const hidden = plot.hiddenCount
-      update(node.querySelector('.node-foot'), root?.ready && !preview ? `<span>${fmt(root.calls)} 次调用${hidden ? ' · 另有 ' + fmt(hidden) + ' 个对象' : ''}${state.mode !== 'cost' && root.omittedCapabilities ? ' · ' + fmt(root.omittedCapabilities) + ' 类能力未展开' : ''}</span>
-        <span>${root.failures ? '<button type="button" class="problem" data-key="faults" data-faults>! ' + fmt(root.failures) + ' 条失败</button> · ' : ''}
-        <button type="button" data-key="cost" data-cost>${esc(cost(root))} 估算${root.unpriced && root.priced ? '（部分）' : ''}</button></span>` : '')
+      update(node.querySelector('.node-foot'), root?.ready && !preview ? `<span>${t(fmt(root.calls) + ' 次调用', fmt(root.calls) + ' calls')}${hidden ? ' · ' + t('另有 ' + fmt(hidden) + ' 个对象', fmt(hidden) + ' more objects') : ''}${state.mode !== 'cost' && root.omittedCapabilities ? ' · ' + t(fmt(root.omittedCapabilities) + ' 类能力未展开', fmt(root.omittedCapabilities) + ' capabilities not shown') : ''}</span>
+        <span>${root.failures ? '<button type="button" class="problem" data-key="faults" data-faults>! ' + t(fmt(root.failures) + ' 条失败', fmt(root.failures) + ' failed') + '</button> · ' : ''}
+        <button type="button" data-key="cost" data-cost>${esc(cost(root))} ${t('估算', 'est.')}${root.unpriced && root.priced ? t('（部分）', ' (partial)') : ''}</button></span>` : '')
     }
     paintPositions()
     if (!state.positioned && state.roots.length) state.positioned = fit()
@@ -806,7 +822,8 @@ function runCanvas() {
       const since = Number(clock.dataset.since)
       if (since > 0) {
         const seconds = Math.max(0, Math.floor((Date.now() - since) / 1000))
-        clock.textContent = ' · ' + (seconds < 60 ? seconds + ' 秒' : Math.floor(seconds / 60) + ' 分 ' + seconds % 60 + ' 秒')
+        clock.textContent = ' · ' + (seconds < 60 ? t(seconds + ' 秒', seconds + 's')
+          : t(Math.floor(seconds / 60) + ' 分 ' + seconds % 60 + ' 秒', Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's'))
       }
     })
   }
@@ -934,8 +951,8 @@ function runCanvas() {
     const label = chars.length > 15 ? chars.slice(0, 14).join('') + '…' : name
     const note = root?.failures ? '!' + fmt(root.failures) : busy ? '●' : ''
     const width = Math.ceil(measure.measureText(label).width) + 43
-    return `<svg viewBox="0 0 245 31" role="group" aria-label="子任务" data-root-x="12" data-root-y="12">
-      <g class="target child" tabindex="0" role="button" aria-label="展开子任务 ${esc(name)}" aria-expanded="false"
+    return `<svg viewBox="0 0 245 31" role="group" aria-label="${t('子任务', 'Child task')}" data-root-x="12" data-root-y="12">
+      <g class="target child" tabindex="0" role="button" aria-label="${t('展开子任务', 'Expand child task')} ${esc(name)}" aria-expanded="false"
         data-key="child" data-expand data-grip><title>${esc(name)}</title>
         <rect class="hit" x="14" y="2" width="${width}" height="20"/>
         <text x="21" y="16">${esc(label)}</text><text x="${width + 7}" y="16" text-anchor="end">${esc(note || '↗')}</text>
@@ -976,7 +993,7 @@ function runCanvas() {
       return `<path class="wire${item.running ? ' busy' : item.failed ? ' failed' : ''}" d="${d}" stroke-width="${stroke}"/>
         ${item.running ? '<path class="pulse" d="' + d + '"/>' : ''}`
     }
-    const wrap = (height, mid, body) => `<svg viewBox="0 0 ${graphWidth} ${height}" role="group" aria-label="会话工作流图"
+    const wrap = (height, mid, body) => `<svg viewBox="0 0 ${graphWidth} ${height}" role="group" aria-label="${t('会话工作流图', 'Session workflow graph')}"
       data-root-x="12" data-root-y="${mid}">${body}</svg>`
     const model = (y) => target({ kind: 'model', x: 14, y, name, key: 'model', attrs: 'data-model data-grip',
       active: root.id === state.inspected && !selection })
@@ -988,10 +1005,10 @@ function runCanvas() {
       const body = steps.map((step, index) => {
         const x = 360 + (index % 3) * 36
         return wire(modelEnd, y, x, heights[index], {})
-          + target({ kind: 'dot', x, y: heights[index], name: '模型请求 #' + step.seq, note: cost(step), key: 'step-' + step.seq,
+          + target({ kind: 'dot', x, y: heights[index], name: t('模型请求', 'Model request') + ' #' + step.seq, note: cost(step), key: 'step-' + step.seq,
             attrs: 'data-step="' + step.seq + '"', active: selection?.step === step.seq })
       }).join('')
-      const note = steps.length ? '' : '<text class="metadata" x="228" y="26">当前会话没有可显示的费用记录</text>'
+      const note = steps.length ? '' : '<text class="metadata" x="228" y="26">' + t('当前会话没有可显示的费用记录', 'This session has no spend records to show') + '</text>'
       return { html: wrap(Math.max(46, (heights.at(-1) || 22) + 18), y, body + model(y) + note), hidden: 0 }
     }
 
@@ -1021,19 +1038,20 @@ function runCanvas() {
       const key = node.id
       const attrs = 'data-cap="' + esc(key) + '"'
       const capName = capabilityName(node)
-      const capNote = mode === 'failed' ? '!' + fmt(node.failed) : fmt(node.hits) + ' 次'
+      const capNote = mode === 'failed' ? '!' + fmt(node.failed) : times(node.hits)
       const capEnd = x + textWidth(truncate(capName, 8), capNote, node.running || node.failed, widths.cap)
       const branch = wire(modelEnd, mid, x, hub, node) + dots.map(({ dot, x: to, y }) => wire(capEnd, hub, to, y, dot)).join('')
       const hubLabel = target({ kind: 'cap', x, y: hub, name: capName, key, attrs,
         note: capNote, running: node.running, failed: node.failed,
         active: selection?.capId === key && selection.dotId == null })
-      const labels = dots.map(({ dot, x: to, y }) => target({ kind: 'dot', x: to, y, name: dot.label || '对象', key: key + ':' + dot.id,
-        note: (dot.failed ? '!' + fmt(dot.failed) + ' · ' : '') + (dot.running && dot.activeName ? truncate(dot.activeName, 8) : fmt(dot.hits) + ' 次'),
+      const labels = dots.map(({ dot, x: to, y }) => target({ kind: 'dot', x: to, y, name: dot.label || t('对象', 'Object'), key: key + ':' + dot.id,
+        note: (dot.failed ? '!' + fmt(dot.failed) + ' · ' : '') + (dot.running && dot.activeName ? truncate(dot.activeName, 8) : times(dot.hits)),
         attrs: attrs + ' data-dot="' + esc(dot.id) + '"', running: dot.running, failed: dot.failed,
         active: selection?.capId === key && selection.dotId === String(dot.id) })).join('')
       return '<g class="branch" data-key="branch-' + esc(key) + '">' + branch + hubLabel + labels + '</g>'
     }).join('')
-    const empty = mode === 'running' ? '当前没有工具调用在执行' : mode === 'failed' ? '当前记录窗口内没有工具失败' : '暂无工具调用'
+    const empty = mode === 'running' ? t('当前没有工具调用在执行', 'No tool calls are running')
+      : mode === 'failed' ? t('当前记录窗口内没有工具失败', 'No tool failures in the current record window') : t('暂无工具调用', 'No tool calls yet')
     const note = groups.length ? '' : '<text class="metadata" x="228" y="26">' + empty + '</text>'
     const total = mode === 'overview' ? nodes.reduce((sum, node) => sum + node.count, 0)
       : nodes.reduce((sum, node) => sum + node.dots.filter(matches).length, 0)
@@ -1050,33 +1068,34 @@ function runCanvas() {
     const dot = node?.dots.find((entry) => String(entry.id) === selected.dotId)
     const link = (label, seq, filter) => external || seq == null ? '' : `<a class="button" data-key="${seq}-${filter || 'all'}" target="_blank" rel="noopener"
       href="${esc(viewUrl(root.id, { at: seq, ...(filter ? { filter } : {}) }))}">${label} ↗</a>`
-    let title = '该节点已离开当前记录窗口'
+    let title = t('该节点已离开当前记录窗口', 'This node has left the current record window')
     let rows = []
     let actions = ''
     let evidence = ''
     let related = ''
     if (step) {
-      title = '模型请求 #' + step.seq
-      rows = [['费用估算', cost(step)], ['输入 Token', fmt(step.prompt)], ['缓存命中 Token', fmt(step.cache)], ['输出 Token', fmt(step.output)]]
-      actions = link('查看对应记录', step.seq)
+      title = t('模型请求', 'Model request') + ' #' + step.seq
+      rows = [[t('费用估算', 'Spend (est.)'), cost(step)], [t('输入 Token', 'Input tokens'), fmt(step.prompt)],
+        [t('缓存命中 Token', 'Cached input tokens'), fmt(step.cache)], [t('输出 Token', 'Output tokens'), fmt(step.output)]]
+      actions = link(t('查看对应记录', 'Open record'), step.seq)
     } else if (node && (selected.dotId == null || dot)) {
       const item = dot || node
       const cap = capabilityName(node)
-      title = dot ? cap + ' → ' + (dot.label || '对象') : cap
-      rows = [['工具调用', fmt(item.hits)], ['执行中 / 失败', fmt(item.running) + ' / ' + fmt(item.failed)]]
-      if (dot?.callers?.length) rows.push(['调用工具', dot.callers.map(({ name, hits }) => name + ' ×' + fmt(hits)).join(' · ')])
-      if (dot?.detail) rows.push(['对象', dot.detail])
-      if (dot?.timed) rows.push(['平均耗时', Math.round(dot.totalMs / dot.timed) + ' ms'])
-      if (!dot && node.usd > 0) rows.push(['关联的输入费用估算', cost({ priced: true, usd: node.usd })])
+      title = dot ? cap + ' → ' + (dot.label || t('对象', 'Object')) : cap
+      rows = [[t('工具调用', 'Tool calls'), fmt(item.hits)], [t('执行中 / 失败', 'Running / failed'), fmt(item.running) + ' / ' + fmt(item.failed)]]
+      if (dot?.callers?.length) rows.push([t('调用工具', 'Callers'), dot.callers.map(({ name, hits }) => name + ' ×' + fmt(hits)).join(' · ')])
+      if (dot?.detail) rows.push([t('对象', 'Object'), dot.detail])
+      if (dot?.timed) rows.push([t('平均耗时', 'Average time'), Math.round(dot.totalMs / dot.timed) + ' ms'])
+      if (!dot && node.usd > 0) rows.push([t('关联的输入费用估算', 'Related input spend (est.)'), cost({ priced: true, usd: node.usd })])
       if (!dot) {
         const objects = node.dots.filter((entry) => state.mode === 'failed' ? entry.failed : state.mode === 'running' ? entry.running : true)
         if (objects.length) related = '<div class="activity">' + objects.map((entry) =>
           `<button type="button" data-key="inspect-${entry.id}" data-inspect-dot="${entry.id}" title="${esc(entry.label)}">
-            <span>${esc(entry.label || '对象')}</span><span>${entry.running ? '执行中 · ' : ''}${entry.failed ? '!' + fmt(entry.failed) + ' · ' : ''}${fmt(entry.hits)} 次</span></button>`).join('') + '</div>'
-      } else actions = '<button type="button" data-key="cap-back" data-inspect-cap>返回能力</button>'
+            <span>${esc(entry.label || t('对象', 'Object'))}</span><span>${entry.running ? t('执行中', 'Running') + ' · ' : ''}${entry.failed ? '!' + fmt(entry.failed) + ' · ' : ''}${times(entry.hits)}</span></button>`).join('') + '</div>'
+      } else actions = '<button type="button" data-key="cap-back" data-inspect-cap>' + t('返回能力', 'Back to capability') + '</button>'
       evidence = root.evidence?.[item.failureSeq]
-      actions += link('正在执行的记录', dot?.activeSeq) + link('最近失败', item.failureSeq, 'failed')
-      if (item.seq !== item.failureSeq && item.seq !== dot?.activeSeq) actions += link('最近调用', item.seq)
+      actions += link(t('正在执行的记录', 'Running record'), dot?.activeSeq) + link(t('最近失败', 'Last failure'), item.failureSeq, 'failed')
+      if (item.seq !== item.failureSeq && item.seq !== dot?.activeSeq) actions += link(t('最近调用', 'Last call'), item.seq)
     }
     update(section, `<h3>${esc(title)}</h3>${rows.length ? '<dl>' + rows.map(([key, value]) =>
       '<dt>' + esc(key) + '</dt><dd>' + esc(value) + '</dd>').join('') + '</dl>' : ''}
@@ -1089,17 +1108,18 @@ function runCanvas() {
     const { id, agentId } = state.detail
     const root = state.data?.roots.find((entry) => entry.id === id)
     const agent = root?.agents?.find((entry) => entry.id === agentId)
-    let name = '记录已离开当前视图'
+    let name = t('记录已离开当前视图', 'This record has left the current view')
     let rows = []
     let action = ''
     if (agent) {
-      name = agent.label || '子 Agent · ' + agent.id.slice(-8)
-      rows = [['状态', agent.running ? '运行中' : '空闲'], ['层级', agent.depth], ['调用', agent.calls == null ? '读取中…' : fmt(agent.calls)], ['估算费用', cost(agent)]]
-      if (state.nodes.has(agent.id)) action = `<button type="button" data-key="locate" data-locate="${esc(agent.id)}">在画布定位</button>`
+      name = agent.label || t('子 Agent', 'Subagent') + ' · ' + agent.id.slice(-8)
+      rows = [[t('状态', 'Status'), agent.running ? t('运行中', 'Running') : t('空闲', 'Idle')], [t('层级', 'Depth'), agent.depth],
+        [t('调用', 'Calls'), agent.calls == null ? t('读取中…', 'Loading…') : fmt(agent.calls)], [t('估算费用', 'Spend (est.)'), cost(agent)]]
+      if (state.nodes.has(agent.id)) action = `<button type="button" data-key="locate" data-locate="${esc(agent.id)}">${t('在画布定位', 'Locate on canvas')}</button>`
     }
     update(dialog, `<h2 id="card-title">${esc(name)}</h2>${rows.length ? '<dl>' + rows.map(([key, value]) =>
       '<dt>' + esc(key) + '</dt><dd>' + esc(value ?? '—') + '</dd>').join('') + '</dl>' : ''}
-      <form method="dialog" class="actions">${action}<button type="submit" data-key="close" autofocus>关闭</button></form>`)
+      <form method="dialog" class="actions">${action}<button type="submit" data-key="close" autofocus>${t('关闭', 'Close')}</button></form>`)
   }
 
   function closeInspector() {
@@ -1150,6 +1170,7 @@ function runCanvas() {
     try {
       const query = new URLSearchParams({ roots: roots.join(','), version: state.version, compact: '1', graphs: '1', family: '1', mode })
       if (inspected) query.set('inspect', inspected)
+      if (external && !zh) query.set('lang', 'en')
       const headers = { accept: 'application/json' }
       if (external) headers.authorization = 'Bearer ' + (accessKey || '')
       const response = await fetch((external ? './canvas-board-data?' : './canvas-data?') + query, { headers })
@@ -1163,13 +1184,14 @@ function runCanvas() {
         paint()
         if (firstGraphs && !state.cameraMoved) state.positioned = fit()
       }
-      if (status.textContent !== '实时更新') status.textContent = '实时更新'
+      const live = t('实时更新', 'Live')
+      if (status.textContent !== live) status.textContent = live
       status.classList.remove('error')
     } catch (error) {
       delay = 3000
       status.textContent = ['401', '403'].includes(error.message)
-        ? external ? '链接已失效，请从 Harness 重新打开' : '连接受限，请从 Harness 打开'
-        : '更新失败，正在重试'
+        ? external ? t('链接已失效，请从 Harness 重新打开', 'This link has expired. Reopen it from Harness.') : t('连接受限，请从 Harness 打开', 'Access is restricted. Open it from Harness.')
+        : t('更新失败，正在重试', 'Update failed. Retrying…')
       status.classList.add('error')
     } finally {
       state.fetching = false

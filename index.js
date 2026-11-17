@@ -1687,6 +1687,7 @@ export function apply(ctx) {
     if (!response.ok || response.status === 204) return response
     const data = await response.json()
     // Send session titles and activity without tool arguments or log excerpts.
+    const object = new URL(request.url).searchParams.get('lang') === 'en' ? 'Object' : '对象'
     for (const session of data.sessions) {
       if (!data.sessions.some((entry) => entry.id === session.parent)) session.parent = null
     }
@@ -1695,7 +1696,7 @@ export function apply(ctx) {
       for (const item of root.active || []) delete item.summary
       for (const node of root.nodes || []) {
         for (const dot of node.dots) {
-          dot.label = (dot.caller || '对象') + ' #' + dot.id
+          dot.label = (dot.caller || object) + ' #' + dot.id
           delete dot.detail
         }
       }
