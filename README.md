@@ -18,7 +18,7 @@ The left-hand icon opens a full page that is not bound to the open conversation:
 
 Open `/agent-workflow/canvas` directly while signed in to DSH Web. In DSH Desktop, **Open in browser** creates a two-hour link for the system browser that shows the same information as the canvas inside Harness. Switch estimated spend between USD and CNY in the header; the CNY view shows the reference rate and its date.
 
-![Workflow overview with a capability map and a live activity panel](preview.png)
+![Demo: open a running session, inspect its terminal calls, filter the timeline to failures](preview.gif)
 
 ## Install
 
