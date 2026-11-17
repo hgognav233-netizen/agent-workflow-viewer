@@ -14,14 +14,14 @@ const result = (seq, callSeq, failed = false) => event(seq, 'tool/result', {
 })
 const record = (id, parentSession) => ({ header: { id, parentSession } })
 
-function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [], connection, listSessions } = {}) {
+function setup({ read = async () => ({ events: [] }), host = '127.0.0.1', sessions = new Map(), children = [], connection, listSessions, services = {} } = {}) {
   const routes = new Map()
   const listeners = new Map()
   const emit = (name, payload) => {
     for (const listener of listeners.get(name) ?? []) listener(payload)
   }
   apply({
-    get: (name) => ({ sessions, connection })[name],
+    get: (name) => ({ sessions, connection, ...services })[name],
     effect: (register) => register(),
     on: (name, listener) => {
       listeners.set(name, [...(listeners.get(name) ?? []), listener])
@@ -66,7 +66,7 @@ test('parallel cold reads share one result and a transient failure can retry', a
   assert.equal(attempts, 2)
 })
 
-test('the browser board requires an authenticated handoff and follows the selected live session only', async () => {
+test('a single-session browser link needs a Harness sign-in and opens the canvas on that session with full records', async () => {
   const events = [call(0, 'read', { path: '/private/notes.txt' })]
   const sessions = new Map([[child, live(events)]])
   const { get, routes } = setup({
@@ -78,34 +78,42 @@ test('the browser board requires an authenticated handoff and follows the select
   assert.equal((await get('board-link', { focus: child }, { headers })).status, 403)
   const owner = { ...headers, cookie: 'fixture=owner' }
   assert.equal((await get('board-link', { focus: 'unknown' }, { headers: owner })).status, 404)
-  const handoff = await get('board-link', { focus: child }, { headers: owner })
+  const handoff = await get('board-link', { focus: child, lang: 'en' }, { headers: owner })
   assert.equal(handoff.status, 200)
   const url = new URL(handoff.body.url)
   assert.equal(url.origin, 'http://127.0.0.1:34567')
+  assert.equal(url.pathname, '/agent-workflow/canvas-board')
   assert.equal(url.search, '')
-  const page = await routes.get('/agent-workflow/board').resource(new Request(url, { headers: host }))
+  const fragment = new URLSearchParams(url.hash.slice(1))
+  assert.equal(fragment.get('focus'), child)
+  assert.equal(fragment.get('lang'), 'en')
+  const page = await routes.get('/agent-workflow/canvas-board').resource(new Request(url, { headers: host }))
   assert.equal(page.status, 200)
   assert.equal(page.headers.get('referrer-policy'), 'no-referrer')
   assert(!(await page.text()).includes('private/notes.txt'))
-  assert.equal((await get('board-data', {}, { headers: host })).status, 401)
-  const authorization = 'Bearer ' + new URLSearchParams(url.hash.slice(1)).get('key')
+  // The former standalone board and its data route are gone.
+  assert(!routes.has('/agent-workflow/board'))
+  assert(!routes.has('/agent-workflow/board-data'))
+  assert.equal((await get('canvas-board-snapshot', { focus: child }, { headers: host })).status, 401)
+  const authorization = 'Bearer ' + fragment.get('key')
   const browser = { ...host, authorization, 'sec-fetch-site': 'same-origin' }
-  assert.equal((await get('board-data', {}, { headers: { ...browser, origin: 'https://other.example' } })).status, 403)
-  assert.equal((await get('board-data', {}, { headers: { ...browser, host: 'other.example' } })).status, 403)
-  const initial = await get('board-data', { root: 'other', focus: 'other' }, { headers: browser })
-  assert.equal(initial.body.calls, 1)
-  assert.equal(initial.body.active[0].name, 'read')
-  assert(!JSON.stringify(initial.body).includes('/private/notes.txt'))
-  assert.equal((await get('board-data', { version: initial.body.version }, { headers: browser })).status, 204)
+  assert.equal((await get('canvas-board-snapshot', { focus: child }, { headers: { ...browser, origin: 'https://other.example' } })).status, 403)
+  assert.equal((await get('canvas-board-snapshot', { focus: child }, { headers: { ...browser, host: 'other.example' } })).status, 403)
+  await get('canvas-board-snapshot', { focus: child }, { headers: browser })
+  // The first read warms the lineage; the second one is stable.
+  const initial = await get('canvas-board-snapshot', { focus: child }, { headers: browser })
+  assert.equal(initial.status, 200)
+  assert.equal(initial.body.items[0].name, 'read')
+  assert.equal(initial.body.items[0].summary, '/private/notes.txt')
+  assert.equal((await get('canvas-board-snapshot', { focus: child, version: initial.body.version }, { headers: browser })).status, 204)
   events.push(result(1, 0), call(2, 'write', { path: '/private/new.txt' }))
-  const updated = await get('board-data', { version: initial.body.version }, { headers: browser })
-  assert.equal(updated.body.calls, 2)
-  assert.equal(updated.body.active[0].name, 'write')
+  const updated = await get('canvas-board-snapshot', { focus: child, version: initial.body.version }, { headers: browser })
+  assert.deepEqual(updated.body.items.map((item) => item.name), ['read', 'write'])
   const separateHost = setup()
-  assert.equal((await separateHost.get('board-data', {}, { headers: browser })).status, 401)
+  assert.equal((await separateHost.get('canvas-board-snapshot', {}, { headers: browser })).status, 401)
 })
 
-test('browser canvas handoff lists session titles and can select another session', async () => {
+test('browser canvas handoff lists session titles with full details and can select another session', async () => {
   const records = [record(root), record(child, root), record('another'), record('other-child', 'another')]
   const events = [
     event(0, 'session/title', { title: '设计复核' }),
@@ -117,7 +125,7 @@ test('browser canvas handoff lists session titles and can select another session
   const { get, routes } = setup({ sessions, listSessions: async () => records })
   const host = { host: '127.0.0.1:34567' }
   const headers = { ...host, 'x-awv-detach': '1' }
-  const query = { view: 'canvas', roots: root }
+  const query = { roots: root }
   assert.equal((await get('board-link', query, { headers })).status, 403)
   const handoff = await get('board-link', query, { headers, peer: {} })
   const url = new URL(handoff.body.url)
@@ -127,7 +135,6 @@ test('browser canvas handoff lists session titles and can select another session
   const key = new URLSearchParams(url.hash.slice(1)).get('key')
   assert.equal((await get('canvas-board-data', {}, { headers: host })).status, 401)
   const browser = { ...host, authorization: 'Bearer ' + key, 'sec-fetch-site': 'same-origin' }
-  assert.equal((await get('board-data', {}, { headers: browser })).status, 401)
   const details = { roots: root, inspect: root }
   const response = await get('canvas-board-data', details, { headers: browser })
   assert.equal(response.status, 200)
@@ -135,7 +142,9 @@ test('browser canvas handoff lists session titles and can select another session
   assert.deepEqual(response.body.sessions.map((entry) => entry.id), [root, child, 'another'])
   assert.equal(response.body.sessions[0].label, '设计复核')
   assert.equal(response.body.roots[0].failures, 1)
-  assert.doesNotMatch(JSON.stringify(response.body), /private|could not read/)
+  // Same information as inside Harness: the key already limits who can read it.
+  assert.match(JSON.stringify(response.body), /project-plan.txt/)
+  assert.equal(response.body.roots[0].recentFailures[0].error, 'could not read')
   const changed = await get('canvas-board-data', { roots: root + ',another' }, { headers: browser })
   assert.deepEqual(changed.body.roots.map((entry) => entry.id), [root, 'another', child, 'other-child'])
   assert.equal((await get('canvas-board-data', { ...details, version: response.body.version }, { headers: browser })).status, 204)
@@ -149,7 +158,7 @@ test('browser canvas handoff lists session titles and can select another session
   assert.deepEqual(childOnly.body.roots, [])
   const added = await get('canvas-board-data', { roots: root + ',new-session,new-child' }, { headers: browser })
   assert.deepEqual(added.body.roots.map((entry) => entry.id), [root, 'new-session', child, 'new-child'])
-  assert.equal((await get('board-link', { view: 'canvas' }, { headers, peer: {} })).status, 200)
+  assert.equal((await get('board-link', {}, { headers, peer: {} })).status, 200)
 })
 
 test('live-to-disk transition preserves counts and settles incomplete calls', async () => {
@@ -281,35 +290,24 @@ test('a working subagent stays visible from the root view', async () => {
   assert.equal(idle.body.working, 0)
 })
 
-test('the standalone board carries the panel views, colour schemes, and interaction hooks', async () => {
+test('the former single-session page opens the canvas focused on that session', async () => {
   const { routes } = setup()
   const host = { host: '127.0.0.1:34567' }
-  const page = await routes.get('/agent-workflow/view')
-    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))
-  assert.equal(page.status, 200)
-  assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8')
-  const html = await page.text()
-  // Same two views as the conversation panel, plus the session selector.
-  assert(html.includes('时间线'))
-  assert(html.includes('正在执行'))
-  assert(html.includes('#sessions'))
-  // Manual colour schemes on top of the system preference.
-  assert(html.includes('跟随系统'))
-  assert(html.includes('prefers-color-scheme:dark'))
-  assert(html.includes('awv-board-theme'))
-  // Interaction hooks: zoom, pan, object detail.
-  assert(html.includes('wheel'))
-  assert(html.includes('pointermove'))
-  assert(html.includes('data-cap'))
-  // Both payloads are reachable from the same page.
-  assert(html.includes('snapshot'))
-  assert(html.includes('board-data'))
+  const open = (query) => routes.get('/agent-workflow/view')
+    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?' + new URLSearchParams(query), { headers: host }))
+  const plain = await open({ root })
+  assert.equal(plain.status, 302)
+  assert.equal(plain.headers.get('location'), '/agent-workflow/canvas?focus=root')
+  const record = await open({ root, focus: child, filter: 'failed', at: '0' })
+  const target = new URL(record.headers.get('location'), 'http://localhost')
+  assert.equal(target.pathname, '/agent-workflow/canvas')
+  assert.deepEqual(Object.fromEntries(target.searchParams), { focus: root, inspect: child, at: '0', filter: 'failed' })
+  assert.equal((await open({})).status, 400)
+  // The canvas carries what the old page had: timeline, filters, zoom and pan.
+  const html = canvasHtml()
+  for (const hook of ['data-tab="timeline"', 'data-feed="failed"', 'data-feed="thinking"', './snapshot?', './canvas-board-snapshot?',
+    'wheel', 'pointermove', 'data-cap', 'focusMode', "search.get('inspect')"]) assert(html.includes(hook), 'canvas lacks ' + hook)
   assert(!html.includes('unsafe-eval'))
-  const board = await routes.get('/agent-workflow/board')
-    .resource(new Request('http://127.0.0.1:34567/agent-workflow/board', { headers: host }))
-  assert.equal(board.status, 200)
-  assert.equal(board.headers.get('referrer-policy'), 'no-referrer')
-  assert((await board.text()).includes('view-only'))
 })
 
 test('reasoning blocks become thinking entries, are filterable, and are priced from token buckets', async () => {
@@ -418,8 +416,11 @@ test('the application-level canvas serves a page and combines several sessions',
   assert.equal(cold.status, 200)
   assert.equal(cold.body.roots.length, 1)
   assert.equal(cold.body.roots[0].id, root)
-  assert.equal(cold.body.sessions.length, 2)
-  assert.equal(cold.body.sessions.find((row) => row.id === child).parent, root)
+  // Like the Harness sidebar, the list leaves subagent sessions out…
+  assert.deepEqual(cold.body.sessions.map((row) => row.id), [root])
+  // …and the canvas still draws them as branches of their parent.
+  const family = await canvas({ roots: root, compact: '1', graphs: '1', family: '1' })
+  assert.equal(family.body.sessions.find((row) => row.id === child).parent, root)
   await get('map')
   const warm = await canvas({ roots: [root].join(',') })
   const drawn = warm.body.roots[0]
@@ -466,12 +467,9 @@ test('canvas summaries refresh on settlement and only expand the inspected sessi
   assert.equal(inspected.nodes[0].dots[0].failureSeq, 1)
   assert.equal(inspected.agents[0].id, child)
 
-  const board = routes.get('/agent-workflow/view')
-  const page = await board.resource(new Request('http://localhost/agent-workflow/view?root=root&filter=failed&at=0'))
-  assert.match(await page.text(), /"filter":"failed","at":0/)
 })
 
-test('canvas keeps older selections addressable beyond the initial picker window', async () => {
+test('the session list is not cut at 40 and older selections stay addressable', async () => {
   const records = Array.from({ length: 42 }, (_, index) => ({
     header: { id: 'session-' + index, createdAt: 1000 - index },
   }))
@@ -479,7 +477,7 @@ test('canvas keeps older selections addressable beyond the initial picker window
   const ids = records.slice(-8).map(({ header }) => header.id)
   const response = (await get('canvas-data', { compact: '1', roots: ids.join(',') })).body
   assert.deepEqual(response.roots.map((row) => row.id), ids)
-  assert.equal(response.sessions.length, 40)
+  assert.equal(response.sessions.length, 42)
   assert(response.sessions.some((row) => row.id === 'session-41'))
 })
 
@@ -570,11 +568,7 @@ test('canvas fit waits for a measurable viewport instead of pinning the zoom at 
 })
 
 test('inline page scripts parse', async () => {
-  const { routes } = setup()
-  const host = { host: '127.0.0.1:34567' }
-  const board = await routes.get('/agent-workflow/view')
-    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))
-  for (const html of [canvasHtml(), await board.text()]) {
+  for (const html of [canvasHtml()]) {
     const scripts = inlineScripts(html)
     assert(scripts.length > 0)
     for (const script of scripts) assert.doesNotThrow(() => new Function(script))
@@ -618,55 +612,98 @@ test('canvas text is bilingual: Chinese only as the first argument of t() or bes
   assert.deepEqual(left, [])
 })
 
-test('the board, the canvas and the panel name capabilities and zones the same way', async () => {
+test('the canvas names every capability and child-task action in both languages', async () => {
   const { readFile } = await import('node:fs/promises')
-  const client = await readFile(new URL('../client.js', import.meta.url), 'utf8')
-  const { routes } = setup()
-  const host = { host: '127.0.0.1:34567' }
-  const board = await (await routes.get('/agent-workflow/view')
-    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))).text()
+  const server = await readFile(new URL('../index.js', import.meta.url), 'utf8')
   const canvas = canvasHtml()
-  // client.js is the reference: every t('中文', 'English') pair in its zones and kindLabels.
-  const reference = client.slice(client.indexOf('const zones = ['), client.indexOf('const state = {'))
-  const pairs = [...reference.matchAll(/(\w+): t\('([^']+)', '([^']+)'\)/g)]
-  const kinds = pairs.filter(([, key]) => key !== 'label')
-  assert.equal(kinds.length, 10)
-  for (const [, key, cn, en] of kinds) {
-    assert(board.includes(key + ": '" + cn + "'"), 'board names ' + key + ' differently')
-    assert(canvas.includes(key + ": t('" + cn + "', '" + en + "')"), 'canvas names ' + key + ' differently')
-  }
-  const zoneNames = pairs.filter(([, key]) => key === 'label').map(([, , cn]) => cn)
-  assert.deepEqual(zoneNames, ['网络', '外部服务', '本机进程', '本机磁盘'])
-  for (const name of zoneNames) assert(board.includes("label: '" + name + "'"), 'board zone ' + name)
-  // The board shows the translated kind, never the raw capability id or zone id.
-  assert(!board.includes('node.label || node.id'))
-  assert(!board.includes('esc(node.zone)'))
+  const labels = canvas.slice(canvas.indexOf('capabilityLabels = {\n'), canvas.indexOf('agentActions = {\n'))
+  const kinds = [...labels.matchAll(/(\w+): t\('([^']+)', '([^']+)'\)/g)].map(([, key]) => key)
+  assert.deepEqual(kinds.sort(), ['agent', 'file', 'mcp', 'memory', 'plan', 'plugin', 'shell', 'skill', 'tool', 'web'])
+  // Every coordination tool the server groups under "agent" gets a readable action, not its raw name.
+  const tools = [...server.match(/const AGENT_TOOLS = new Set\(\[([^\]]+)\]\)/)[1].matchAll(/'(\w+)'/g)].map(([, name]) => name)
+  const actions = canvas.slice(canvas.indexOf('agentActions = {\n'), canvas.indexOf('translateStatic()\n  }'))
+  for (const name of tools) assert(actions.includes(name + ': t('), 'no action name for ' + name)
+  // MCP servers show as "MCP · server".
+  assert(canvas.includes("node.kind === 'mcp' ? 'MCP · '"))
+  // client.js no longer carries its own copy of these names.
+  const client = await readFile(new URL('../client.js', import.meta.url), 'utf8')
+  assert(!client.includes('kindLabels'))
 })
 
-test('the panel, the board and the canvas share one colour-scheme key', async () => {
+test('the canvas follows Harness language and colours, and keeps one colour key on its own', async () => {
   const { readFile } = await import('node:fs/promises')
   const client = await readFile(new URL('../client.js', import.meta.url), 'utf8')
-  const { routes } = setup()
-  const host = { host: '127.0.0.1:34567' }
-  const board = await (await routes.get('/agent-workflow/view')
-    .resource(new Request('http://127.0.0.1:34567/agent-workflow/view?root=root', { headers: host }))).text()
   const canvas = canvasHtml()
-  // Everyone writes awv.theme and nothing else.
-  assert(client.includes("localStorage.setItem('awv.theme', theme)"))
-  assert(board.includes("localStorage.setItem('awv.theme', theme)"))
+  // Inside Harness: the host page's lang attribute, watched for changes, and its colour tokens.
+  assert(canvas.includes('host?.documentElement.lang'))
+  assert(canvas.includes("attributeFilter: ['lang']"))
+  assert(canvas.includes("'--dsw-alias-brand-primary'"))
+  assert(canvas.includes("byId('theme').hidden = Boolean(host)"))
+  // A link can carry the language; the browser language is the last fallback.
+  assert(canvas.includes("search.get('lang') || params.get('lang')"))
+  assert(canvas.includes('navigator.language'))
+  // On its own the canvas writes awv.theme and still reads the pre-0.3.1 key.
   assert(canvas.includes("write('awv.theme', theme)"))
-  for (const source of [client, board, canvas]) {
-    assert(!/(setItem|write)\('awv-(board-)?theme'/.test(source))
-    // The shared key is read first; the pre-0.3.1 key keeps an earlier choice.
-    const shared = source.search(/(getItem|read)\('awv\.theme'\)/)
-    const legacy = source.search(/(getItem|read)\('awv-theme'\)/)
-    assert(shared >= 0 && legacy > shared)
+  assert(!/(setItem|write)\('awv-(board-)?theme'/.test(canvas))
+  const shared = canvas.search(/read\('awv\.theme'\)/)
+  const legacy = canvas.search(/read\('awv-theme'\)/)
+  assert(shared >= 0 && legacy > shared)
+  // client.js reads the language on every call instead of once at load.
+  assert(client.includes('const t = (cn, en) => (document.documentElement.lang'))
+  assert(!client.includes('localStorage'))
+})
+
+test('the session list follows the Harness sidebar rules', async () => {
+  const header = (id, extra = {}) => ({ header: { id, createdAt: 1000, cwd: '/work/' + (extra.folder || 'alpha'), ...extra } })
+  const records = [
+    header('older', { createdAt: 900 }),
+    header('newer'),
+    header('pinned', { createdAt: 500 }),
+    header('blank'),
+    header('archived'),
+    header('worker', { parentSession: 'newer', origin: 'subagent' }),
+    header('fork', { parentSession: 'newer', origin: 'fork', folder: 'beta' }),
+    header('stray', { folder: 'gamma' }),
+  ]
+  const values = {
+    older: { title: '旧的会话', sessionListMetadata: { lastPromptAt: 9000, blank: false } },
+    newer: { title: '新的会话', sessionListMetadata: { lastPromptAt: 5000, blank: false } },
+    blank: { sessionListMetadata: { blank: true } },
   }
+  const services = {
+    workspaceRegistry: {
+      list: () => [
+        { id: 'a', title: 'Alpha', path: '/work/alpha', sessionIds: ['older', 'newer', 'pinned', 'blank', 'archived', 'worker'] },
+        { id: 'b', title: 'Beta', path: '/work/beta', sessionIds: ['fork'] },
+      ],
+      archivedSessionIds: new Set(['archived']),
+      pinnedSessionIds: ['pinned'],
+    },
+    sessionProjectionCache: { cachedSnapshot: (meta) => ({ asOfSeq: 0, values: values[meta.id] || {} }) },
+  }
+  const { get } = setup({ listSessions: async () => records, services })
+  const list = (await get('canvas-data', { compact: '1', roots: '' })).body
+  // Pinned first, then latest activity; no subagent, blank or archived session.
+  assert.deepEqual(list.sessions.map((row) => row.id), ['pinned', 'older', 'newer', 'fork', 'stray'])
+  assert.equal(list.sessions.find((row) => row.id === 'older').label, '旧的会话')
+  assert.deepEqual(list.sessions.map((row) => row.workspace), ['w:a', 'w:a', 'w:a', 'w:b', 'c:gamma'])
+  assert.deepEqual(list.workspaces, [{ id: 'w:a', title: 'Alpha' }, { id: 'w:b', title: 'Beta' }, { id: 'c:gamma', title: 'gamma' }])
+  assert.equal(list.archivedCount, 1)
+  assert(!JSON.stringify(list.workspaces).includes('/work/'))
+  // Archived sessions on request; a selected blank session stays visible.
+  const all = (await get('canvas-data', { compact: '1', roots: 'blank', archived: '1' })).body
+  assert(all.sessions.some((row) => row.id === 'archived' && row.archived))
+  assert(all.sessions.some((row) => row.id === 'blank'))
+  // Without the registry or the cache, the list still works from the session headers.
+  const plain = setup({ listSessions: async () => records })
+  const fallback = (await plain.get('canvas-data', { compact: '1', roots: '' })).body
+  assert.equal(fallback.sessions.length, 7)
+  assert.deepEqual(fallback.workspaces.map((space) => space.title).sort(), ['alpha', 'beta', 'gamma'])
 })
 
 test('a collapsed child task header stays on one line with only state and timer', () => {
   const html = canvasHtml()
-  assert(html.includes('.node.branch-preview .node-head{min-height:25px;padding-left:14px;white-space:nowrap}'))
+  assert(html.includes('.node.branch-preview .node-head{min-height:28px;padding:4px 10px;border:0;white-space:nowrap}'))
   assert(html.includes('.node.branch-preview .node-head .phase{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}'))
   // The collapsed branch renders the phase and clock only: no tool, project or model.
   const collapsed = html.slice(html.indexOf("update(node.querySelector('.node-head'), preview ? `"))
