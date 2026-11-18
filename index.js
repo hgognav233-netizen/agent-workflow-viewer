@@ -249,7 +249,7 @@ function fold(feed, event) {
     case 'tool/result': {
       const message = data.message ?? {}
       const status = message.isError || data.error ? 'failed' : 'done'
-      const result = { status, time, text: clip(textOf(message.content), 700), error: clip(data.error?.reason ?? data.error?.code, 240) }
+      const result = { status, seq, time, text: clip(textOf(message.content), 700), error: clip(data.error?.reason ?? data.error?.code, 240) }
       const call = feed.calls.get(message.toolCallId)
       if (call) {
         call.result = result
@@ -366,8 +366,17 @@ function aggregate(feed) {
     if (status === 'failed') {
       group.failed++
       dot.failed++
-      group.failureSeq = item.seq
-      dot.failureSeq = item.seq
+      if (!group.failure || item.result.seq > group.failure.resultSeq) {
+        group.failureSeq = item.seq
+        group.failure = { resultSeq: item.result.seq, time: item.result.time, name: item.name }
+      }
+      if (!dot.failure || item.result.seq > dot.failure.resultSeq) {
+        dot.failureSeq = item.seq
+        dot.failure = { resultSeq: item.result.seq, time: item.result.time, name: item.name }
+        delete dot.laterSuccess
+      }
+    } else if (status === 'done' && dot.failure && item.seq > dot.failure.resultSeq && !dot.laterSuccess) {
+      dot.laterSuccess = { seq: item.seq, time: item.result.time, name: item.name }
     }
     if (status === 'running') {
       group.running++
@@ -418,6 +427,9 @@ function timeline(feed, query) {
   if (anchor !== null) {
     const targetIndex = filtered.findIndex((item) => item.seq === Number(anchor))
     if (targetIndex < 0) return { items: [], missing: true, older: null, newer: null }
+    if (!filter && filtered[targetIndex].result?.status === 'failed') {
+      return page(Math.max(0, targetIndex - 3), Math.min(filtered.length, targetIndex + 4))
+    }
     index = Math.max(0, Math.min(targetIndex - Math.floor(TIMELINE_LIMIT / 2), index))
   } else if (before !== null) {
     const boundary = filtered.findIndex((item) => item.seq >= Number(before))

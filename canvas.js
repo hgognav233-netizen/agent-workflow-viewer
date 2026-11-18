@@ -171,7 +171,7 @@ details[open] summary{margin-bottom:8px}
 .plot .is-busy .metadata{fill:var(--brand)}
 @keyframes flow{to{stroke-dashoffset:-24}}
 @media(prefers-reduced-motion:reduce){.plot .pulse,.pill.busy::before{animation:none}}
-.evidence{padding:9px 10px;border-left:3px solid var(--bad);background:var(--bad-soft);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+.selection dd{white-space:pre-wrap}
 .selection{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px}
 .selection h3{font-size:13.5px;overflow-wrap:anywhere}
 .selection dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px}
@@ -272,8 +272,8 @@ dialog dd{margin:0;overflow-wrap:anywhere}
         <button type="button" role="tab" data-tab="timeline" aria-selected="false" data-en="Timeline">时间线</button>
       </nav>
       <div class="panel-body" data-pane="overview">
-        <div class="panel-content"></div>
         <section class="selection" hidden aria-label="所选图节点" data-en-aria-label="Selected graph node"></section>
+        <div class="panel-content"></div>
         <details class="calls" hidden><summary></summary><div class="activity"></div></details>
         <details class="failures" hidden><summary></summary><div class="activity"></div></details>
         <details class="spend" hidden><summary></summary><div class="activity"></div></details>
@@ -903,7 +903,7 @@ function runCanvas() {
       + (root.running > active.length ? '<span class="subtle">' + t('另有 ' + fmt(root.running - active.length) + ' 项执行中', fmt(root.running - active.length) + ' more running') + '</span>' : ''))
     failuresList.querySelector('summary').textContent = t('近期失败', 'Recent failures') + ' · ' + fmt(root.recentFailures?.length)
     if (!failuresList.hidden && failuresList.open) update(failuresList.querySelector('.activity'), root.recentFailures.map((entry) =>
-      recordLink(id, { at: entry.seq, filter: 'failed' }, '<b>' + esc(entry.name || t('工具', 'Tool')) + '</b><span>' + esc(entry.target || entry.error) + '</span>',
+      recordLink(id, { at: entry.seq }, '<b>' + esc(entry.name || t('工具', 'Tool')) + '</b><span>' + esc(entry.target || entry.error) + '</span>',
         'data-key="failed-' + entry.seq + '" title="' + esc(entry.error) + '"')).join(''))
     spend.querySelector('summary').textContent = t('费用最高的模型请求', 'Most expensive model requests')
     if (!spend.hidden && spend.open) update(spend.querySelector('.activity'), root.topSteps.map((step) =>
@@ -1410,7 +1410,6 @@ function runCanvas() {
     let title = t('该节点已离开当前记录窗口', 'This node has left the current record window')
     let rows = []
     let actions = ''
-    let evidence = ''
     let related = ''
     if (step) {
       title = t('模型请求', 'Model request') + ' #' + step.seq
@@ -1432,13 +1431,24 @@ function runCanvas() {
           `<button type="button" data-key="inspect-${entry.id}" data-inspect-dot="${entry.id}" title="${esc(entry.label)}">
             <span>${esc(objectName(node, entry))}</span><span>${entry.running ? t('执行中', 'Running') + ' · ' : ''}${entry.failed ? '!' + fmt(entry.failed) + ' · ' : ''}${times(entry.hits)}</span></button>`).join('') + '</div>'
       } else actions = '<button type="button" data-key="cap-back" data-inspect-cap>' + t('返回能力', 'Back to capability') + '</button>'
-      evidence = root.evidence?.[item.failureSeq]
-      actions += link(t('正在执行的记录', 'Running record'), dot?.activeSeq) + link(t('最近失败', 'Last failure'), item.failureSeq, 'failed')
-      if (item.seq !== item.failureSeq && item.seq !== dot?.activeSeq) actions += link(t('最近调用', 'Last call'), item.seq)
+      if (item.failure) {
+        const failure = item.failure
+        const success = dot?.laterSuccess
+        const reason = root.evidence?.[item.failureSeq]
+        const outcomeRows = [[t('最近失败', 'Last failure'), [clockOf(failure.time), failure.name].filter(Boolean).join(' · ')],
+          [t('失败原因', 'Failure reason'), reason == null ? t('正在读取失败记录…', 'Loading failure record…') : reason || t('日志未提供原因', 'No reason recorded')]]
+        if (dot) outcomeRows.push([t('后续调用', 'Later calls'), success
+          ? [clockOf(success.time), success.name, t('成功', 'Succeeded')].filter(Boolean).join(' · ')
+          : t('当前记录中未见此对象随后发起的成功调用', 'No later call to this object succeeded in the available records')])
+        rows.unshift(...outcomeRows)
+        actions = link(t('查看失败前后记录', 'View failure in context'), item.failureSeq)
+          + (success ? link(t('查看成功记录', 'View successful call'), success.seq) : '') + actions
+      }
+      actions += link(t('正在执行的记录', 'Running record'), dot?.activeSeq)
+      if (item.seq !== item.failureSeq && item.seq !== dot?.activeSeq && item.seq !== dot?.laterSuccess?.seq) actions += link(t('最近调用', 'Last call'), item.seq)
     }
     update(section, `<h3>${esc(title)}</h3>${rows.length ? '<dl>' + rows.map(([key, value]) =>
       '<dt>' + esc(key) + '</dt><dd>' + esc(value) + '</dd>').join('') + '</dl>' : ''}
-      ${evidence ? '<p class="evidence">' + esc(evidence) + '</p>' : ''}
       ${actions ? '<div class="actions">' + actions + '</div>' : ''}${related}`)
   }
 

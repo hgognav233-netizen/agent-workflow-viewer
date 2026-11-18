@@ -223,6 +223,40 @@ test('target identity survives long arguments and respects Windows and POSIX pat
   assert.equal('object' in timeline.items[0], false)
 })
 
+test('failure details use the latest failed result and only later calls to that object', async () => {
+  const file = { path: '/project/a' }
+  const events = [call(0, 'read', file), call(1, 'read', file), result(2, 1, true),
+    call(3, 'read', file), result(4, 0, true), result(5, 3),
+    call(6, 'read', { path: '/project/b' }), result(7, 6)]
+  const { get } = setup({ sessions: new Map([[root, live(events)]]) })
+  const query = { compact: '1', graphs: '1', roots: root, inspect: root }
+  async function selected() {
+    const graph = (await get('canvas-data', query)).body.roots[0]
+    return graph.nodes[0].dots.find((dot) => dot.id === 0)
+  }
+  const failed = await selected()
+  assert.equal(failed.failureSeq, 0)
+  assert.equal(failed.failure.time, 1004)
+  assert.equal(failed.laterSuccess, undefined)
+  events.push(call(8, 'write', file), result(9, 8))
+  assert.deepEqual((await selected()).laterSuccess, { seq: 8, time: 1009, name: 'write' })
+  events.push(call(10, 'read', file), result(11, 10, true))
+  assert.equal((await selected()).laterSuccess, undefined)
+})
+
+test('failure anchors show three surrounding records on either side with working page boundaries', async () => {
+  const msg = (seq) => event(seq, 'user/message', { content: 'message' })
+  const events = [msg(0), msg(1), msg(2), msg(3), call(4, 'read', { path: 'file' }),
+    result(5, 4, true), call(6, 'read', { path: 'file' }), result(7, 6), msg(8), msg(9), msg(10)]
+  const { get } = setup({ read: async () => ({ events }) })
+  const page = (await get('snapshot', { at: 4 })).body
+  assert.deepEqual(page.items.map((item) => item.seq), [1, 2, 3, 4, 6, 8, 9])
+  assert.equal(page.items[4].result.status, 'done')
+  assert.equal((await get('snapshot', { before: page.older })).body.items.at(-1).seq, 0)
+  assert.equal((await get('snapshot', { after: page.newer })).body.items[0].seq, 10)
+  assert.equal((await get('snapshot', { filter: 'failed' })).body.items.length, 1)
+})
+
 test('parallel active calls settle by turn and child views omit inherited events', async () => {
   const events = [call(0, 'read', { path: 'one' }), call(1, 'read', { path: 'two' }), call(2, 'read', { path: 'three' }, 2)]
   const sessions = new Map([[root, live(events)], [child, live(events, 2)]])
