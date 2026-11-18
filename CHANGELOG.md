@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- **Failure details** show when the last failure happened, its error text, and any later successful call on the same object, so a failure that was already fixed reads as fixed. Opening the timeline from a failure shows three records before and after it.
+- **Conversation panel** closes when you click outside it or click the empty canvas background (dragging still pans). Its top edge stays clear of the window title bar, also when it fills the window.
+
 ## 0.4.0
 
 One interface instead of three: the canvas is now the only view. The conversation panel and the browser link show the same canvas.
