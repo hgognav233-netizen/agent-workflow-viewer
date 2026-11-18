@@ -75,6 +75,7 @@ h1,h2,h3,p{margin:0}
 .relations{position:absolute;inset:0;overflow:visible;width:1px;height:1px;pointer-events:none}
 .relations .relation{fill:none;stroke:var(--line-strong);stroke-width:1.4;marker-end:url(#awv-arrow)}
 .node{position:absolute;width:710px;user-select:none;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px #0000000a,0 6px 20px #0000000d}
+:root[data-embed=panel] .node,:root[data-embed=panel] .legend{pointer-events:auto}
 .node.is-busy{border-color:color-mix(in srgb,var(--brand) 45%,var(--line))}
 .node.is-failed{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
 .node.is-inspected{outline:2px solid var(--brand);outline-offset:2px}
@@ -332,6 +333,7 @@ function runCanvas() {
   const focusMode = Boolean(focusId)
   const inPanel = search.get('embed') === 'panel'
   document.documentElement.dataset.mode = focusMode ? 'focus' : 'app'
+  if (inPanel) document.documentElement.dataset.embed = 'panel'
   // Harness frames this page on its own origin, so its document is readable.
   const host = (() => {
     try { return window.parent !== window && window.parent.document?.documentElement ? window.parent.document : null } catch { return null }
@@ -533,6 +535,7 @@ function runCanvas() {
     byId('fill').textContent = full ? '⤡' : '⤢'
     byId('fill').setAttribute('aria-label', full ? t('还原面板大小', 'Restore panel size') : t('占满窗口', 'Fill the window'))
     byId('fill').title = byId('fill').getAttribute('aria-label')
+    if (inPanel) byId('viewport').setAttribute('aria-label', t('点击空白处关闭，拖动平移，滚轮缩放，按方向键移动', 'Click the background to close, drag to pan, scroll to zoom, use arrow keys to move'))
   }
   function note(html) {
     barNote.hidden = !html
@@ -1223,7 +1226,8 @@ function runCanvas() {
     const node = event.target.closest('[data-grip]')?.closest('[data-node]')
     const id = node?.dataset.node
     state.drag = { id, pointer: event.pointerId, x: event.clientX, y: event.clientY,
-      origin: { ...state.camera }, branch: id ? branchPositions(id) : [], moved: false }
+      origin: { ...state.camera }, branch: id ? branchPositions(id) : [], moved: false,
+      background: event.target === viewport }
   })
   viewport.addEventListener('pointermove', (event) => {
     const drag = state.drag
@@ -1263,6 +1267,8 @@ function runCanvas() {
       // Remember only the dragged anchor and any previously placed descendants.
       savePosition(drag.id)
     }
+    if (inPanel && drag.background && !drag.moved && event.type === 'pointerup' && event.target === viewport
+      && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5) tell('close')
   }
   window.addEventListener('pointerup', endDrag)
   window.addEventListener('pointercancel', endDrag)

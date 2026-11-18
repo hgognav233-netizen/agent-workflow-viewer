@@ -46,10 +46,15 @@ window.__ModuleLoader__.load({
         window.addEventListener('keydown', key)
         return () => window.removeEventListener('keydown', key)
       }, [close])
-      return h('section', {
+      const top = 'max(48px, var(--dsh-frame-top-clearance, 0px))'
+      return h(React.Fragment, null, h('div', {
+        'aria-hidden': true,
+        style: { position: 'fixed', zIndex: 90, inset: 'var(--dsh-frame-top-clearance, 0px) 0 0', pointerEvents: 'auto' },
+        onClick: close,
+      }), h('section', {
         role: 'dialog', 'aria-label': t('工作流', 'Workflow'),
         style: {
-          position: 'fixed', zIndex: 90, inset: full ? '8px' : '48px 16px 64px auto',
+          position: 'fixed', zIndex: 90, inset: full ? top + ' 8px 8px' : top + ' 16px 64px auto', pointerEvents: 'auto',
           width: full ? 'auto' : 'min(980px, calc(100vw - 32px))', display: 'flex', flexDirection: 'column', overflow: 'hidden',
           borderRadius: 16, border: '1px solid var(--dsw-alias-border-l2, #e2e5e9)',
           background: 'var(--dsw-alias-bg-layer-1, #fff)', boxShadow: '0 20px 70px #0000004d',
@@ -58,7 +63,7 @@ window.__ModuleLoader__.load({
         ref: frame, title: t('工作流', 'Workflow'), style: frameStyle,
         src: '/agent-workflow/canvas?' + new URLSearchParams({ focus: root, embed: 'panel' }),
         onLoad: () => frame.current?.contentWindow?.focus(),
-      }))
+      })))
     }
 
     let launcher = null
